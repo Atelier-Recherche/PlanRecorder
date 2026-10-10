@@ -124,6 +124,10 @@ internal fun updateCourseWidget(
 ) {
     val views = RemoteViews(context.packageName, R.layout.course_recording_widget)
     views.setTextViewText(R.id.txt_course_title, courseLabel)
+    // Always show rec + stop + refresh on one row (colored drawables stay visible on light tiles).
+    views.setViewVisibility(R.id.btn_course_record, View.VISIBLE)
+    views.setViewVisibility(R.id.btn_course_stop, View.VISIBLE)
+    views.setViewVisibility(R.id.btn_course_refresh, View.VISIBLE)
     if (isRecording) {
         views.setTextViewText(
             R.id.txt_recording_timer,
@@ -132,12 +136,8 @@ internal fun updateCourseWidget(
                 TimeUtils.formatTimeIntervalHourMinSec2(durationMills),
             ),
         )
-        views.setViewVisibility(R.id.btn_course_stop, View.VISIBLE)
-        views.setViewVisibility(R.id.btn_course_record, View.GONE)
     } else {
         views.setTextViewText(R.id.txt_recording_timer, context.getString(R.string.course_widget_idle))
-        views.setViewVisibility(R.id.btn_course_stop, View.GONE)
-        views.setViewVisibility(R.id.btn_course_record, View.VISIBLE)
     }
     views.setOnClickPendingIntent(R.id.btn_course_record, courseRecordingPendingIntent(context))
     views.setOnClickPendingIntent(R.id.btn_course_stop, courseStopPendingIntent(context))
