@@ -552,7 +552,8 @@ class HomeViewModel @Inject constructor(
         val calendarId = prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
         val timeMillis = recordingSessionContext.capturedAtMillis.takeIf { it > 0 }
             ?: System.currentTimeMillis()
-        val activeEvents = calendarRepository.getActiveEvents(timeMillis, calendarId)
+        val grace = prefs.calendarEventWindowMinutes.coerceAtLeast(0) * 60_000L
+        val activeEvents = calendarRepository.getActiveEvents(timeMillis, calendarId, grace)
         val ambiguous = activeEvents.size > 1
         val event = when {
             recordingSessionContext.capturedEvent != null && !ambiguous ->
@@ -1149,14 +1150,17 @@ class HomeViewModel @Inject constructor(
         }
         var tempNormalized: File? = null
         if (prefs.normalizeOnExport) {
-            tempNormalized = AudioPeakNormalizer.normalizeToWav(
+            val normalized = AudioPeakNormalizer.normalizeKeepingFormat(
                 localFile,
                 getApplication<Application>().cacheDir,
+                extension,
             )
-            if (tempNormalized != null) {
-                exportFile = tempNormalized
-                extension = "wav"
+            if (normalized != null) {
+                tempNormalized = normalized.file
+                exportFile = normalized.file
+                extension = normalized.extension
             }
+            // If re-encode fails, keep the original Opus/M4A/… file (never force WAV).
         }
         val fileName = "$fileBaseName.$extension"
         val uri = safStorageManager.copyFile(

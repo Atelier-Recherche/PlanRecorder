@@ -52,6 +52,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -627,22 +628,58 @@ fun UpdateNameAndDescriptionDialog(
                     )
                     if (folderSuggestions.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = stringResource(id = R.string.folder_suggestions),
-                            fontSize = 13.sp,
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Column {
-                            folderSuggestions.take(8).forEach { suggestion ->
-                                Text(
-                                    text = suggestion,
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { destinationValue.value = suggestion }
-                                        .padding(vertical = 4.dp),
-                                )
+                        val folderMenuExpanded = remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { folderMenuExpanded.value = true },
+                                value = destinationValue.value,
+                                onValueChange = {},
+                                readOnly = true,
+                                enabled = false,
+                                label = { Text(text = stringResource(id = R.string.folder_suggestions)) },
+                                trailingIcon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_arrow_down),
+                                        contentDescription = null,
+                                    )
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                                textStyle = TextStyle.Default.copy(fontSize = 14.sp),
+                                singleLine = true,
+                            )
+                            // Full-field tap target (disabled TextField does not receive clicks)
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { folderMenuExpanded.value = true },
+                            )
+                            DropdownMenu(
+                                expanded = folderMenuExpanded.value,
+                                onDismissRequest = { folderMenuExpanded.value = false },
+                                modifier = Modifier.fillMaxWidth(0.9f),
+                            ) {
+                                folderSuggestions.forEach { suggestion ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = suggestion,
+                                                maxLines = 2,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                            )
+                                        },
+                                        onClick = {
+                                            destinationValue.value = suggestion
+                                            folderMenuExpanded.value = false
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

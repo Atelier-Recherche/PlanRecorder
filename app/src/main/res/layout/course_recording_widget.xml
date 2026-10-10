@@ -3,27 +3,61 @@
     style="@style/Widget.AudioRecorder.AppWidget.Container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:padding="8dp">
-
-    <ImageButton
-        android:id="@+id/btn_course_record"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="@color/transparent"
-        android:contentDescription="@string/course_widget_record"
-        android:src="@mipmap/audio_recorder_widget_button" />
 
     <TextView
         android:id="@+id/txt_course_title"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_weight="1"
         android:ellipsize="end"
         android:maxLines="2"
         android:text="@string/course_widget_no_event"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="13sp" />
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txt_recording_timer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="@string/course_widget_idle"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/btn_course_record"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@color/transparent"
+            android:contentDescription="@string/course_widget_record"
+            android:src="@mipmap/audio_recorder_widget_button" />
+
+        <ImageButton
+            android:id="@+id/btn_course_stop"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@color/transparent"
+            android:contentDescription="@string/course_widget_stop"
+            android:src="@drawable/ic_stop"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/btn_course_refresh"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="@color/transparent"
+            android:contentDescription="@string/course_widget_refresh"
+            android:src="@drawable/ic_loop" />
+    </LinearLayout>
 </LinearLayout>

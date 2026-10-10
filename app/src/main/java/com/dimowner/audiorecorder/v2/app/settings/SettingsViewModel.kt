@@ -181,6 +181,7 @@ internal class SettingsViewModel @Inject constructor(
             normalizeOnExport = prefs.normalizeOnExport,
             calendarReminderEnabled = prefs.calendarReminderEnabled,
             calendarReminderMinutes = prefs.calendarReminderMinutes,
+            calendarEventWindowMinutes = prefs.calendarEventWindowMinutes,
         )
     }
 
@@ -188,7 +189,11 @@ internal class SettingsViewModel @Inject constructor(
         prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
 
     private fun buildPatternPreview(folderPattern: String, filePattern: String): String {
-        val event = calendarRepository.getActiveEvent(calendarId = selectedCalendarFilter())
+        val grace = prefs.calendarEventWindowMinutes.coerceAtLeast(0) * 60_000L
+        val event = calendarRepository.getActiveEvent(
+            calendarId = selectedCalendarFilter(),
+            graceMillis = grace,
+        )
         val resolved = TemplateEngine.resolve(
             event = event,
             folderPattern = folderPattern,
@@ -584,6 +589,15 @@ internal class SettingsViewModel @Inject constructor(
         calendarReminderScheduler.reschedule()
     }
 
+    fun setCalendarEventWindowMinutes(minutes: Int) {
+        prefs.calendarEventWindowMinutes = minutes
+        _state.value = _state.value.copy(
+            calendarEventWindowMinutes = prefs.calendarEventWindowMinutes,
+            patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
+        )
+        CourseRecordingWidget.requestUpdate(appContext)
+    }
+
     fun insertPatternTag(target: PatternField, tag: String) {
         when (target) {
             PatternField.Folder -> setFolderPattern(prefs.folderPattern + tag)
@@ -633,6 +647,8 @@ internal class SettingsViewModel @Inject constructor(
             is SettingsScreenAction.SetNormalizeOnExport -> setNormalizeOnExport(action.enabled)
             is SettingsScreenAction.SetCalendarReminderEnabled -> setCalendarReminderEnabled(action.enabled)
             is SettingsScreenAction.SetCalendarReminderMinutes -> setCalendarReminderMinutes(action.minutes)
+            is SettingsScreenAction.SetCalendarEventWindowMinutes ->
+                setCalendarEventWindowMinutes(action.minutes)
         }
     }
 
@@ -712,6 +728,7 @@ internal sealed class SettingsScreenAction {
     data class SetNormalizeOnExport(val enabled: Boolean) : SettingsScreenAction()
     data class SetCalendarReminderEnabled(val enabled: Boolean) : SettingsScreenAction()
     data class SetCalendarReminderMinutes(val minutes: Int) : SettingsScreenAction()
+    data class SetCalendarEventWindowMinutes(val minutes: Int) : SettingsScreenAction()
 }
 
 enum class PatternField {

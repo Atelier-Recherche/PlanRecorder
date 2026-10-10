@@ -4,8 +4,11 @@
 package com.dimowner.audiorecorder.v2.audio
 
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaMuxer
+import android.os.Build
 import timber.log.Timber
 import java.io.File
 import java.io.RandomAccessFile
@@ -15,17 +18,27 @@ import kotlin.math.abs
 import kotlin.math.min
 
 /**
- * Decodes an audio file to PCM, applies peak normalization (~90% of Int16 range),
- * and writes a 16-bit PCM WAV. Used for optional normalize-on-export.
+ * Decodes audio, applies peak normalization (~90% of Int16), and re-encodes
+ * preferring the original container/format (Opus / M4A / WAV).
  */
 object AudioPeakNormalizer {
 
     private const val TARGET_PEAK = 29490 // ~90% of 32767
 
+    data class NormalizeResult(
+        val file: File,
+        val extension: String,
+    )
+
     /**
-     * @return temp WAV file, or null on failure
+     * Peak-normalize [input] while keeping [preferredExtension] when possible.
+     * Returns null if normalization fails (caller should export the original).
      */
-    fun normalizeToWav(input: File, outputDir: File): File? {
+    fun normalizeKeepingFormat(
+        input: File,
+        outputDir: File,
+        preferredExtension: String,
+    ): NormalizeResult? {
         if (!input.exists()) return null
         return try {
             val decoded = decodeToPcm(input) ?: return null
@@ -36,14 +49,45 @@ object AudioPeakNormalizer {
                 if (a > peak) peak = a
             }
             val gain = if (peak >= TARGET_PEAK) 1f else TARGET_PEAK.toFloat() / peak.toFloat()
-            val out = File(outputDir, "${input.nameWithoutExtension}_norm.wav")
-            writeWav(out, decoded.samples, decoded.sampleRate, decoded.channelCount, gain)
-            out
+            val gained = ShortArray(decoded.samples.size) { i ->
+                (decoded.samples[i] * gain).toInt()
+                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    .toShort()
+            }
+            val ext = preferredExtension.lowercase()
+            when (ext) {
+                "wav" -> {
+                    val out = File(outputDir, "${input.nameWithoutExtension}_norm.wav")
+                    writeWav(out, gained, decoded.sampleRate, decoded.channelCount, 1f)
+                    NormalizeResult(out, "wav")
+                }
+                "m4a", "mp4", "aac" -> {
+                    val out = File(outputDir, "${input.nameWithoutExtension}_norm.m4a")
+                    if (encodeAac(gained, decoded.sampleRate, decoded.channelCount, out)) {
+                        NormalizeResult(out, "m4a")
+                    } else null
+                }
+                "opus", "ogg", "oga" -> {
+                    val out = File(outputDir, "${input.nameWithoutExtension}_norm.opus")
+                    if (encodeOpus(gained, decoded.sampleRate, decoded.channelCount, out)) {
+                        NormalizeResult(out, "opus")
+                    } else null
+                }
+                else -> {
+                    val out = File(outputDir, "${input.nameWithoutExtension}_norm.wav")
+                    writeWav(out, gained, decoded.sampleRate, decoded.channelCount, 1f)
+                    NormalizeResult(out, "wav")
+                }
+            }
         } catch (e: Exception) {
             Timber.e(e, "Peak normalize failed")
             null
         }
     }
+
+    /** @deprecated Prefer [normalizeKeepingFormat]. */
+    fun normalizeToWav(input: File, outputDir: File): File? =
+        normalizeKeepingFormat(input, outputDir, "wav")?.file
 
     private data class PcmData(
         val samples: ShortArray,
@@ -131,6 +175,143 @@ object AudioPeakNormalizer {
         }
     }
 
+    private fun encodeOpus(
+        samples: ShortArray,
+        sampleRate: Int,
+        channelCount: Int,
+        output: File,
+    ): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return encodeCompressed(
+            samples = samples,
+            sampleRate = sampleRate,
+            channelCount = channelCount,
+            output = output,
+            mime = MediaFormat.MIMETYPE_AUDIO_OPUS,
+            bitRate = 32_000,
+            muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG,
+        )
+    }
+
+    private fun encodeAac(
+        samples: ShortArray,
+        sampleRate: Int,
+        channelCount: Int,
+        output: File,
+    ): Boolean {
+        return encodeCompressed(
+            samples = samples,
+            sampleRate = sampleRate,
+            channelCount = channelCount,
+            output = output,
+            mime = MediaFormat.MIMETYPE_AUDIO_AAC,
+            bitRate = 128_000,
+            muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+        )
+    }
+
+    private fun encodeCompressed(
+        samples: ShortArray,
+        sampleRate: Int,
+        channelCount: Int,
+        output: File,
+        mime: String,
+        bitRate: Int,
+        muxerFormat: Int,
+    ): Boolean {
+        var codec: MediaCodec? = null
+        var muxer: MediaMuxer? = null
+        return try {
+            val format = MediaFormat.createAudioFormat(mime, sampleRate, channelCount).apply {
+                setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
+                setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, sampleRate * channelCount * 2)
+                if (mime == MediaFormat.MIMETYPE_AUDIO_AAC) {
+                    setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+                }
+            }
+            codec = MediaCodec.createEncoderByType(mime)
+            codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            codec.start()
+            if (output.exists()) output.delete()
+            muxer = MediaMuxer(output.absolutePath, muxerFormat)
+            var trackIndex = -1
+            var muxerStarted = false
+            val info = MediaCodec.BufferInfo()
+            var sampleOffset = 0
+            val frameSamples = (sampleRate / 50) * channelCount // ~20ms
+            var inputDone = false
+            var outputDone = false
+            var presentationUs = 0L
+            while (!outputDone) {
+                if (!inputDone) {
+                    val inIndex = codec.dequeueInputBuffer(10_000)
+                    if (inIndex >= 0) {
+                        val buffer = codec.getInputBuffer(inIndex)!!
+                        buffer.clear()
+                        if (sampleOffset >= samples.size) {
+                            codec.queueInputBuffer(
+                                inIndex, 0, 0, presentationUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                            )
+                            inputDone = true
+                        } else {
+                            val remain = samples.size - sampleOffset
+                            val count = min(frameSamples, remain)
+                            val bytes = ByteBuffer.allocate(count * 2).order(ByteOrder.LITTLE_ENDIAN)
+                            for (i in 0 until count) {
+                                bytes.putShort(samples[sampleOffset + i])
+                            }
+                            bytes.flip()
+                            buffer.put(bytes)
+                            val pts = presentationUs
+                            presentationUs += (count / channelCount) * 1_000_000L / sampleRate
+                            codec.queueInputBuffer(inIndex, 0, count * 2, pts, 0)
+                            sampleOffset += count
+                        }
+                    }
+                }
+                val outIndex = codec.dequeueOutputBuffer(info, 10_000)
+                when {
+                    outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        if (muxerStarted) throw IllegalStateException("format changed twice")
+                        trackIndex = muxer.addTrack(codec.outputFormat)
+                        muxer.start()
+                        muxerStarted = true
+                    }
+                    outIndex >= 0 -> {
+                        val encoded = codec.getOutputBuffer(outIndex)!!
+                        if (info.size > 0 && muxerStarted &&
+                            info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
+                        ) {
+                            encoded.position(info.offset)
+                            encoded.limit(info.offset + info.size)
+                            muxer.writeSampleData(trackIndex, encoded, info)
+                        }
+                        codec.releaseOutputBuffer(outIndex, false)
+                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            outputDone = true
+                        }
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to re-encode normalized audio as %s", mime)
+            output.delete()
+            false
+        } finally {
+            try {
+                codec?.stop()
+                codec?.release()
+            } catch (_: Exception) {
+            }
+            try {
+                muxer?.stop()
+                muxer?.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private fun writeWav(
         file: File,
         samples: ShortArray,
@@ -146,7 +327,7 @@ object AudioPeakNormalizer {
             raf.writeBytes("WAVE")
             raf.writeBytes("fmt ")
             raf.writeIntLE(16)
-            raf.writeShortLE(1) // PCM
+            raf.writeShortLE(1)
             raf.writeShortLE(channelCount)
             raf.writeIntLE(sampleRate)
             raf.writeIntLE(sampleRate * channelCount * 2)
@@ -159,7 +340,8 @@ object AudioPeakNormalizer {
             while (i < samples.size) {
                 buf.clear()
                 while (i < samples.size && buf.remaining() >= 2) {
-                    val v = (samples[i] * gain).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    val v = (samples[i] * gain).toInt()
+                        .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                     buf.putShort(v.toShort())
                     i++
                 }

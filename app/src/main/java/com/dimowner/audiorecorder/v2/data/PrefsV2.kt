@@ -125,6 +125,12 @@ interface PrefsV2 {
     /** Minutes before event start for [calendarReminderEnabled]. */
     var calendarReminderMinutes: Int
 
+    /**
+     * Grace window in minutes before/after an event during which it still counts as "active"
+     * for naming / widget (e.g. record 15 min early).
+     */
+    var calendarEventWindowMinutes: Int
+
     companion object {
         const val NO_CALENDAR_FILTER: Long = -1L
     }

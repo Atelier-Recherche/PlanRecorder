@@ -809,6 +809,19 @@ private fun PlanRecorderSettingsSection(
             singleLine = true,
         )
     }
+    OutlinedTextField(
+        value = uiState.calendarEventWindowMinutes.toString(),
+        onValueChange = {
+            val mins = it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: return@OutlinedTextField
+            onAction(SettingsScreenAction.SetCalendarEventWindowMinutes(mins))
+        },
+        label = { Text(stringResource(R.string.calendar_event_window_minutes)) },
+        supportingText = { Text(stringResource(R.string.calendar_event_window_help)) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        singleLine = true,
+    )
 }
 
 @Preview

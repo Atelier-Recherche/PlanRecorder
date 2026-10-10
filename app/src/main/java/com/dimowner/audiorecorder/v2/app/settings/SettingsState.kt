@@ -67,6 +67,7 @@ data class SettingsState(
     val normalizeOnExport: Boolean = false,
     val calendarReminderEnabled: Boolean = false,
     val calendarReminderMinutes: Int = 5,
+    val calendarEventWindowMinutes: Int = 15,
 ) : Parcelable
 
 @Parcelize

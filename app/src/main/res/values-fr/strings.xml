@@ -302,7 +302,13 @@
 	<string name="agc_live">AGC live (volume auto)</string>
 	<string name="agc_live_summary">Utilise le contrôle automatique de gain Android si disponible.</string>
 	<string name="normalize_on_export">Normaliser le volume à l\'export</string>
-	<string name="normalize_on_export_summary">Normalise le pic et exporte en WAV vers le dossier SAF.</string>
+	<string name="normalize_on_export_summary">Normalise le pic puis réencode dans le même format (Opus/M4A/WAV). En cas d\'échec, garde le fichier d\'origine.</string>
+	<string name="calendar_event_window_minutes">Fenêtre événement (minutes avant/après)</string>
+	<string name="calendar_event_window_help">Le cours reste « actif » autant de minutes avant le début et après la fin (ex. 15).</string>
+	<string name="course_widget_refresh">Actualiser le calendrier</string>
+	<string name="course_widget_stop">Arrêter et ouvrir l\'app</string>
+	<string name="course_widget_idle">Appuyer pour enregistrer</string>
+	<string name="course_widget_recording">Enregistrement %1$s</string>
 	<string name="calendar_reminder">Rappel avant le cours</string>
 	<string name="calendar_reminder_minutes">Minutes avant le début</string>
 	<string name="calendar_reminder_channel">Rappels de cours</string>

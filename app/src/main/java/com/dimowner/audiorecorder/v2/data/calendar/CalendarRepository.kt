@@ -18,15 +18,18 @@ interface CalendarRepository {
     fun getActiveEvent(
         timeMillis: Long = System.currentTimeMillis(),
         calendarId: Long? = null,
+        graceMillis: Long = 0L,
     ): CalendarEvent?
 
     /**
-     * All events overlapping [timeMillis] (optionally filtered by calendar).
+     * All events overlapping [timeMillis] (optionally filtered by calendar),
+     * expanded by [graceMillis] before start / after end.
      * Ordered by begin time descending (most recently started first).
      */
     fun getActiveEvents(
         timeMillis: Long = System.currentTimeMillis(),
         calendarId: Long? = null,
+        graceMillis: Long = 0L,
     ): List<CalendarEvent>
 
     /**

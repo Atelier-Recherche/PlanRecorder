@@ -158,6 +158,7 @@ class AudioRecordingService : Service() {
     lateinit var analyticsTracker: AnalyticsTracker
 
     private var activeAgc: android.media.audiofx.AutomaticGainControl? = null
+    private var lastWidgetUpdateTime: Long = 0L
 
     /**
      * The playback player, the same singleton instance [AudioPlaybackService] drives, so that
@@ -290,8 +291,9 @@ class AudioRecordingService : Service() {
                 serviceScope.launch {
                     val now = System.currentTimeMillis()
                     val calendarId = prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
+                    val grace = prefs.calendarEventWindowMinutes.coerceAtLeast(0) * 60_000L
                     recordingSessionContext.capture(
-                        calendarRepository.getActiveEvent(now, calendarId),
+                        calendarRepository.getActiveEvent(now, calendarId, grace),
                         now,
                     )
                     val recordName = prefs.settingNamingFormat.getNewRecordName(prefs)
@@ -369,6 +371,8 @@ class AudioRecordingService : Service() {
                             waveformDataOffset = 0,
                             durationMills = 0L,
                         )
+                        com.dimowner.audiorecorder.v2.app.CourseRecordingWidget
+                            .onRecordingProgress(applicationContext, true, 0L)
                         startNotificationUpdates()
                         updateNotification()
                     }
@@ -389,6 +393,8 @@ class AudioRecordingService : Service() {
                     }
                     is RecorderEvent.OnStopRecording -> {
                         releaseAgc()
+                        com.dimowner.audiorecorder.v2.app.CourseRecordingWidget
+                            .onRecordingProgress(applicationContext, false, 0L)
                         handleRecordingStopped()
                     }
                     is RecorderEvent.OnMaxDurationReached -> {
@@ -550,6 +556,12 @@ class AudioRecordingService : Service() {
             waveformDataOffset = waveformDataOffset,
             widthScale = widthScale,
         )
+        val nowMs = System.currentTimeMillis()
+        if (nowMs - lastWidgetUpdateTime >= 1000L) {
+            lastWidgetUpdateTime = nowMs
+            com.dimowner.audiorecorder.v2.app.CourseRecordingWidget
+                .onRecordingProgress(applicationContext, true, durationMills)
+        }
     }
 
     /**

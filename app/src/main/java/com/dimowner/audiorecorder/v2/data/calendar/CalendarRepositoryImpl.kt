@@ -54,16 +54,30 @@ class CalendarRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getActiveEvent(timeMillis: Long, calendarId: Long?): CalendarEvent? =
-        getActiveEvents(timeMillis, calendarId).firstOrNull()
+    override fun getActiveEvent(
+        timeMillis: Long,
+        calendarId: Long?,
+        graceMillis: Long,
+    ): CalendarEvent? = getActiveEvents(timeMillis, calendarId, graceMillis).firstOrNull()
 
-    override fun getActiveEvents(timeMillis: Long, calendarId: Long?): List<CalendarEvent> {
-        return queryInstances(
-            begin = timeMillis,
-            end = timeMillis,
+    override fun getActiveEvents(
+        timeMillis: Long,
+        calendarId: Long?,
+        graceMillis: Long,
+    ): List<CalendarEvent> {
+        val grace = graceMillis.coerceAtLeast(0L)
+        val events = queryInstances(
+            begin = timeMillis - grace,
+            end = timeMillis + grace,
             calendarId = calendarId,
             sortOrder = "${CalendarContract.Instances.BEGIN} DESC",
         )
+        if (grace == 0L) return events
+        // Keep events whose expanded interval contains [timeMillis].
+        return events.filter { event ->
+            timeMillis >= event.startTimeMillis - grace &&
+                timeMillis <= event.endTimeMillis + grace
+        }
     }
 
     override fun getUpcomingEvents(

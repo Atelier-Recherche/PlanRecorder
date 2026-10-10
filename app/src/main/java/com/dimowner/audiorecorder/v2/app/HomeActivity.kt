@@ -74,6 +74,7 @@ class HomeActivity: ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         installSplashScreen()
+        handleStopRecordingIntent(intent)
         setContent {
             val isDark by prefs.isDarkThemeFlow.collectAsState()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -105,11 +106,28 @@ class HomeActivity: ComponentActivity() {
         )
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleStopRecordingIntent(intent)
+    }
+
     override fun onResume() {
         super.onResume()
         if (notificationPermissionCheckPending) {
             notificationPermissionCheckPending = false
             checkNotificationPermission()
+        }
+    }
+
+    private fun handleStopRecordingIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING, false) != true) {
+            return
+        }
+        intent.removeExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING)
+        // Stop after the ViewModel is ready; brief delay covers cold start from widget.
+        window.decorView.post {
+            viewModel.handleStopRecordingClick()
         }
     }
 

@@ -325,7 +325,13 @@
 	<string name="agc_live">AGC live (auto volume)</string>
 	<string name="agc_live_summary">Uses Android Automatic Gain Control when the device supports it.</string>
 	<string name="normalize_on_export">Normalize volume on export</string>
-	<string name="normalize_on_export_summary">Peak-normalizes and exports as WAV to the SAF folder.</string>
+	<string name="normalize_on_export_summary">Peak-normalizes then re-encodes in the same format (Opus/M4A/WAV). Falls back to the original file if re-encode fails.</string>
+	<string name="calendar_event_window_minutes">Event window (minutes before/after)</string>
+	<string name="calendar_event_window_help">Treat a class as active this many minutes before it starts and after it ends (e.g. 15).</string>
+	<string name="course_widget_refresh">Refresh calendar</string>
+	<string name="course_widget_stop">Stop and open app</string>
+	<string name="course_widget_idle">Tap record to start</string>
+	<string name="course_widget_recording">Recording %1$s</string>
 	<string name="calendar_reminder">Remind before class</string>
 	<string name="calendar_reminder_minutes">Minutes before start</string>
 	<string name="calendar_reminder_channel">Class reminders</string>

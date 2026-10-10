@@ -414,6 +414,14 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var calendarEventWindowMinutes: Int
+        get() = sharedPreferences.getInt(PREF_KEY_CALENDAR_EVENT_WINDOW_MINUTES, 15)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_CALENDAR_EVENT_WINDOW_MINUTES, value.coerceIn(0, 180))
+            }
+        }
+
     override fun resetRecordingSettings() {
         sharedPreferences.edit {
             putString(
@@ -468,5 +476,6 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_NORMALIZE_ON_EXPORT = "pref_key_normalize_on_export"
         private const val PREF_KEY_CALENDAR_REMINDER_ENABLED = "pref_key_calendar_reminder_enabled"
         private const val PREF_KEY_CALENDAR_REMINDER_MINUTES = "pref_key_calendar_reminder_minutes"
+        private const val PREF_KEY_CALENDAR_EVENT_WINDOW_MINUTES = "pref_key_calendar_event_window_minutes"
     }
 }

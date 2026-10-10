@@ -79,6 +79,16 @@ if ($CreateGithubRelease) {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
         throw "gh CLI not found; install GitHub CLI or omit -CreateGithubRelease"
     }
+    # Prefer PlanRecorder origin when both upstream + origin exist.
+    $repo = "Morglaf/PlanRecorder"
+    try {
+        $originUrl = git remote get-url origin 2>$null
+        if ($originUrl -match 'github\.com[:/](.+?)/(.+?)(?:\.git)?$') {
+            $repo = "$($Matches[1])/$($Matches[2])"
+        }
+    } catch { }
+    gh repo set-default $repo 2>$null | Out-Null
+
     $Tag = "v$Version"
     $Notes = @"
 ## PlanRecorder $Version
@@ -88,9 +98,12 @@ SHA256: ``$Sha``
 
 See README for setup (calendar, SAF export, Opus, markers).
 "@
-    Write-Host "==> Creating GitHub release $Tag ..." -ForegroundColor Cyan
-    gh release create $Tag $ApkDst --title "PlanRecorder $Version" --notes $Notes
-    Write-Host "==> GitHub release published" -ForegroundColor Green
+    Write-Host "==> Creating GitHub release $Tag on $repo ..." -ForegroundColor Cyan
+    gh release create $Tag $ApkDst --repo $repo --title "PlanRecorder $Version" --notes $Notes
+    if ($LASTEXITCODE -ne 0) {
+        throw "GitHub release failed (exit $LASTEXITCODE). Try: gh repo set-default $repo"
+    }
+    Write-Host "==> GitHub release published: https://github.com/$repo/releases/tag/$Tag" -ForegroundColor Green
 }
 
 Write-Host "Done." -ForegroundColor Green

@@ -4,7 +4,9 @@
     android:initialKeyguardLayout="@layout/course_recording_widget"
     android:initialLayout="@layout/course_recording_widget"
     android:minWidth="180dp"
-    android:minHeight="40dp"
+    android:minHeight="80dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
     android:previewImage="@mipmap/audio_recorder_widget_button"
     android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen" />
