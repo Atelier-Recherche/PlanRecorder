@@ -1,115 +1,101 @@
-# Development Plans
-<b>Release v0.9.99:</b>
- - Update target SDK to 34
- - Fix few main issues and bugs
-   
-<b>Release v1.0.0:</b>
- - Add support Bluetooth mics
- - Add ability to select recording audio sources
- - Add backup feature to allow download all records files into a public directory 'Downloads'
+# PlanRecorder
 
-<br>
-<p><b>Release v2.0.0:</b> (Currently under development)</p>
-<p>Completely rework the app by adopting a new architecture written in Kotlin, designing the UI with Android Compose, integrating a Room database, using ExoPlayer for media playback, and Hilt for dependency injection. Despite these substantial changes, the app’s existing user interface will remain mostly unchanged. Additionally, focusing on achieving robust unit test coverage. These enhancements are expected to significantly enhance app stability, accelerate feature delivery, and mitigate concerns about introducing new bugs.</p>
+[English README](README.en.md)
 
+Fork d’[AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) pour **prendre des notes audio classées par événement de calendrier** (DAVx⁵ / calendrier Android).
 
-![Audio Recorder Logo](https://github.com/Dimowner/AudioRecorder/blob/master/app/src/releaseConfig/res/mipmap-xxxhdpi/audio_recorder_logo.png)
+| | |
+|---|---|
+| Application ID | `com.planrecorder` (debug : `com.planrecorder.debug`) |
+| Licence | Apache 2.0 (base AudioRecorder) |
+| Icône | [Lucide mic-signal](https://lucide.dev/icons/mic-signal) (ISC) — merci à Lucide |
 
-# Audio Recorder
+## Fonctionnalités
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-     alt="Get it on F-Droid"
-     height="80">](https://f-droid.org/packages/com.dimowner.audiorecorder/)
-[<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png"
-     alt="Get it on Google Play"
-     height="80">](https://play.google.com/store/apps/details?id=com.dimowner.audiorecorder)
+1. **Événement en cours** via `CalendarContract` au démarrage de l’enregistrement
+2. **Calendrier source** configurable (ou tous les calendriers)
+3. **Patterns** dossier / fichier avec balises cliquables (`[id]`, `[ue]`, date/heure…)
+4. **Export SAF** vers un dossier racine choisi une fois
+5. **Opus** + préréglage **Filtrer pour les voix**
+6. **Identifiants personnalisés** (`UE:1+`, `MATH:3`…) + liste des IDs déjà vus
+7. **AGC live** et **normalisation peak → WAV** à l’export (options)
+8. **Widget « cours en cours »** et **rappel X min** avant le créneau
+9. **Marqueurs** pendant l’enregistrement → fichier Markdown style Obsidian  
+   `[[fichier.opus#t=508|08:28]] debut du cours`
 
+## Matching intelligent des dossiers
 
-<p><b>Audio Recorder</b> is your go-to app for seamless audio recording. Whether you’re capturing important moments or creating content, Audio Recorder got you covered. Here’s what makes our app stand out:</p>
+Si le pattern produit `UE581 seminaire croquette` mais qu’existe déjà `UE581 seminaire croquette et tech`, PlanRecorder **réutilise le dossier existant** (et l’inverse), tant que l’identifiant correspond.
 
-<p><b>1. Fast Startup</b>: the app optimized to launch quickly, so you won’t miss a beat when inspiration strikes.</p>
-<b>2. Flexible Formats</b>: Choose from three recording formats:
+## Sans événement / ambiguïté
 
- - <b>M4A</b>: High-quality audio in a compact file size.
- - <b>WAVE (WAV)</b>: Ideal for professional-grade recordings.
- - <b>3Gp</b>: Perfect for sharing on the go.
+- suggestions parmi les dossiers ID déjà présents + IDs mémorisés
+- préremplissage possible, modifiable dans le dialogue de fin
 
-<b>3. Customizable Settings:</b>
- - Easy to adjust sample rate and bitrate to suit your needs.
- - Toggle between mono and stereo recording.
+## Balises de pattern
 
-<b>4. Visual Waveform</b>: See your recordings come to life with waveform display.
+| Tag | Signification |
+|-----|----------------|
+| `[calendar]` | Nom affiché de l’agenda |
+| `[title]` | Titre complet |
+| `[title_rest]` | Titre sans le préfixe identifiant |
+| `[id]` / `[ue]` | Identifiant extrait (`UE323`, …) |
+| `[NN]` / `[nn]` | Numéro de séance (01… / 1…) |
+| `[dd]` `[mm]` `[yy]` `[yyyy]` | Date |
+| `[HH]` `[MM]` `[SS]` | Heure (`[MM]` = minutes, `[mm]` = mois) |
 
-<b>5. User-Friendly Features:</b>
- - Rename recordings for easy organization.
- - Share your audio files effortlessly.
- - Import existing audio files.
- - Create bookmarks for quick access.
- - Personalize the app with colorful themes.
+Defaults : dossier `[calendar]/[id] [title_rest]` · fichier `[NN]-T[HH][MM][SS]-[dd][mm][yy]-[id]`
 
-# Test Coverage Reports
-
-The project uses [JaCoCo](https://www.jacoco.org/) for code-coverage reporting. Two Gradle tasks are available:
-
-### Unit-test-only report (no device required)
+## Build / install
 
 ```bash
-./gradlew jacocoTestReport
+./gradlew :app:assembleDebugConfigDebug
+adb install -r app/build/outputs/apk/debugConfig/debug/app-debugConfig-debug.apk
 ```
 
-Runs **unit tests** (`testDebugConfigDebugUnitTest`) and generates a coverage report.
+Release locale (artefacts dans `release/`, ignoré par git) :
 
-| Output   | Path                                                  |
-|----------|-------------------------------------------------------|
-| HTML     | `app/build/reports/jacoco/html/index.html`            |
-| XML      | `app/build/reports/jacoco/jacocoTestReport.xml`       |
+```powershell
+.\scripts\release.ps1
+# ou avec tag GitHub :
+.\scripts\release.ps1 -Version 1.0.0 -CreateGithubRelease
+```
 
-### Full report — unit tests + connected (instrumented) tests
+## Première utilisation
 
-> **Prerequisite:** a connected device or running emulator.
+1. **Settings → PlanRecorder**
+2. Choisir le **dossier d’export** (SAF)
+3. Choisir le **calendrier** (ex. DAVx⁵)
+4. Ajuster patterns / règles d’identifiant
+5. Optionnel : Filtrer pour les voix, AGC, normalisation, rappel
+6. Accorder **Calendrier** (+ notifications pour les rappels)
+7. Enregistrer pendant un événement, valider le dialogue de fin
+
+## Publier sur un nouveau dépôt GitHub
 
 ```bash
-./gradlew jacocoFullReport
+# 1. Créer le dépôt (compte GitHub connecté via gh)
+gh repo create PlanRecorder --public --source=. --remote=origin --description "Calendar-aware audio notes for lectures (fork of AudioRecorder)"
+
+# 2. Pousser la branche
+git push -u origin HEAD
+
+# Ou, si origin existe déjà :
+# git remote add origin https://github.com/<toi>/PlanRecorder.git
+# git push -u origin HEAD
 ```
 
-Runs both **unit tests** and **connected Android tests** (`connectedDebugConfigDebugAndroidTest`), then merges the coverage data into a single report.
-
-| Output   | Path                                                  |
-|----------|-------------------------------------------------------|
-| HTML     | `app/build/reports/jacoco/htmlFull/index.html`        |
-| XML      | `app/build/reports/jacoco/jacocoFullReport.xml`       |
-
-### Coverage verification
+Garder l’upstream AudioRecorder pour les merges :
 
 ```bash
-./gradlew jacocoTestCoverageVerification
+git remote add upstream https://github.com/Dimowner/AudioRecorder.git   # si besoin
+git fetch upstream
+git merge upstream/master
 ```
 
-Runs `jacocoFullReport` and then asserts that the overall **line coverage ratio ≥ 5 %**. The build will fail if the threshold is not met.
+Les packages Java restent `com.dimowner.audiorecorder…` pour faciliter les merges ; seul l’`applicationId` / le libellé sont PlanRecorder.
 
-> **Tip:** For fast local iteration use `jacocoTestReport` (unit tests only). Reserve `jacocoFullReport` / `jacocoTestCoverageVerification` for CI or when you need instrumented-test coverage.
+## Crédits
 
-# FAQ
-### <b>When option to choose recording directory will be added?</b>
-<p>There is no plans to add feature where user can change recording directory. Newer versions of Android added restrictions on ability to interact with device file system. There is no simple way how to implement the feature. So all records are stored in app's private dir. Anyway, all record files available for user to download from app's private dir to a public dir.</p> 
-
-### License
-
-```
-Copyright 2019 Dmytro Ponomarenko
-
-Licensed to the Apache Software Foundation (ASF) under one or more contributor
-license agreements. See the NOTICE file distributed with this work for
-additional information regarding copyright ownership. The ASF licenses this
-file to you under the Apache License, Version 2.0 (the "License"); you may not
-use this file except in compliance with the License. You may obtain a copy of
-the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-License for the specific language governing permissions and limitations under
-the License.
-```
+- [AudioRecorder](https://github.com/Dimowner/AudioRecorder) — Dmytro Ponomarenko (Apache 2.0)
+- Icône [mic-signal](https://lucide.dev/icons/mic-signal) — [Lucide Icons](https://lucide.dev) (ISC)

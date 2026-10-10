@@ -45,9 +45,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -453,7 +456,8 @@ fun BottomBar(
     onResumeRecordingClick: () -> Unit,
     onStopRecordingClick: () -> Unit,
     onDeleteRecordingClick: () -> Unit,
-    bottomBarState: BottomBarState
+    bottomBarState: BottomBarState,
+    onAddMarkerClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -488,6 +492,7 @@ fun BottomBar(
                     modifier = Modifier,
                     onPauseRecordingClick = onDebounceClick(onPauseRecordingClick),
                     onStopRecordingClick = onDebounceClick(onStopRecordingClick),
+                    onAddMarkerClick = onAddMarkerClick?.let { onDebounceClick(it) },
                 )
             }
             BottomBarState.PAUSED -> {
@@ -548,13 +553,28 @@ fun RecordingProgressPanel(
     modifier: Modifier,
     onPauseRecordingClick: () -> Unit,
     onStopRecordingClick: () -> Unit,
+    onAddMarkerClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-
-        Spacer(modifier = Modifier.size(width = 62.dp, 54.dp))
+        if (onAddMarkerClick != null) {
+            IconButton(
+                onClick = onAddMarkerClick,
+                modifier = Modifier
+                    .size(54.dp)
+                    .align(Alignment.CenterVertically),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_bookmark_bordered),
+                    contentDescription = stringResource(R.string.add_marker),
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        } else {
+            Spacer(modifier = Modifier.size(width = 62.dp, 54.dp))
+        }
         CircleButton(
             modifier = Modifier.size(80.dp),
             text = stringResource(R.string.button_pause),
@@ -669,6 +689,37 @@ fun RecordingPausePanel(
 @Composable
 fun RecordingPausePanelPreview() {
     RecordingPausePanel(Modifier, {}, {}, {})
+}
+
+@Composable
+fun MarkerNoteDialog(
+    onAcceptClick: (String) -> Unit,
+    onDismissClick: () -> Unit,
+) {
+    val note = remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismissClick,
+        title = { Text(text = stringResource(R.string.add_marker)) },
+        text = {
+            OutlinedTextField(
+                value = note.value,
+                onValueChange = { note.value = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text(text = stringResource(R.string.marker_note_hint)) },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onAcceptClick(note.value) }) {
+                Text(text = stringResource(R.string.btn_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissClick) {
+                Text(text = stringResource(R.string.btn_cancel))
+            }
+        },
+    )
 }
 
 @Preview(showBackground = true)

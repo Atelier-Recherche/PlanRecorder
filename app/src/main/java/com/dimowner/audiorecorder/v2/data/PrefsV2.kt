@@ -85,6 +85,50 @@ interface PrefsV2 {
 
     var recordAuthorName: String
 
+    /** SAF tree URI for PlanRecorder export root, or null if not configured. */
+    var safRootTreeUri: String?
+
+    /** Relative folder pattern, e.g. `[calendar]/[ue] [title_rest]`. */
+    var folderPattern: String
+
+    /** File name pattern without extension, e.g. `[NN]-T[HH][MM][SS]-[dd][mm][yy]-[ue]`. */
+    var filePattern: String
+
+    /**
+     * When true, recording uses Opus + speech bitrate + [AudioSource.VOICE_RECOGNITION].
+     * Previous format settings are restored when disabled.
+     */
+    var voiceFilterEnabled: Boolean
+
+    /**
+     * Selected Android calendar id for event lookup, or [NO_CALENDAR_FILTER] for all calendars.
+     */
+    var selectedCalendarId: Long
+
+    /**
+     * Identifier rules text (`PREFIX:N` / `PREFIX:N+`, one per line). See [com.dimowner.audiorecorder.v2.data.template.IdentifierRules].
+     */
+    var identifierRulesText: String
+
+    /** Course / UE codes already seen (for pickers). */
+    var seenIdentifiers: Set<String>
+
+    /** Enable Android AutomaticGainControl while recording when available. */
+    var agcLiveEnabled: Boolean
+
+    /** Peak-normalize and export as WAV on SAF export. */
+    var normalizeOnExport: Boolean
+
+    /** Notify before the next calendar event. */
+    var calendarReminderEnabled: Boolean
+
+    /** Minutes before event start for [calendarReminderEnabled]. */
+    var calendarReminderMinutes: Int
+
+    companion object {
+        const val NO_CALENDAR_FILTER: Long = -1L
+    }
+
     fun resetRecordingSettings()
 
     fun fullPreferenceReset()

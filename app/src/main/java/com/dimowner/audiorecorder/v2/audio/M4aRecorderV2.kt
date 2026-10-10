@@ -60,6 +60,8 @@ class M4aRecorderV2 @Inject constructor(
     private val _event = MutableSharedFlow<RecorderEvent>()
     override fun subscribeRecorderEvents(): Flow<RecorderEvent> = _event
 
+    override fun audioSessionId(): Int = active?.audioSessionId() ?: -1
+
     init {
         // Both children are process-lifetime singletons, so relaying permanently is cheaper than
         // re-subscribing per recording - and it cannot miss the first event, which subscribing

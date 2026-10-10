@@ -182,19 +182,19 @@ fun htmlStringResources(@StringRes vararg resIds: Int): AnnotatedString {
 }
 
 fun RecordingFormat.convertToText(formatStrings: Array<String>): String {
-    return formatStrings[this.index]
+    return formatStrings.getOrElse(this.index) { this.value }
 }
 
 fun BitRate.convertToText(bitrateStrings: Array<String>): String {
-    return bitrateStrings[this.index]
+    return bitrateStrings.getOrElse(this.index) { "${this.value / 1000} kbps" }
 }
 
 fun ChannelCount.convertToText(channelCountStrings: Array<String>): String {
-    return channelCountStrings[this.index]
+    return channelCountStrings.getOrElse(this.index) { this.name }
 }
 
-fun SampleRate.convertToText(channelCountStrings: Array<String>): String {
-    return channelCountStrings[this.index]
+fun SampleRate.convertToText(sampleRateStrings: Array<String>): String {
+    return sampleRateStrings.getOrElse(this.index) { "${this.value} Hz" }
 }
 
 @SuppressWarnings("MagicNumber")
@@ -206,7 +206,7 @@ fun sizeMbPerMin(
 ): Float {
     if (recordingFormat == null) return 0F
     return when (recordingFormat) {
-        RecordingFormat.M4a -> {
+        RecordingFormat.M4a, RecordingFormat.Opus -> {
             if (bitrate == null) {
                 0F
             } else {
@@ -237,7 +237,7 @@ fun spaceToRecordingTimeMills(
 ): Long {
     if (recordingFormat == null || spaceBytes <= 0L) return 0L
     return when (recordingFormat) {
-        RecordingFormat.M4a -> {
+        RecordingFormat.M4a, RecordingFormat.Opus -> {
             if (bitrate == null) 0L
             else 1000L * (spaceBytes / (bitrate.value / 8L))
         }
@@ -329,7 +329,7 @@ fun getBitRates(
         ChipItem(
             id = bitRate.index,
             value = bitRate,
-            name = strings[bitRate.index],
+            name = strings.getOrElse(bitRate.index) { "${bitRate.value / 1000} kbps" },
             isSelected = bitRate == selected
         )
     }
@@ -344,7 +344,7 @@ fun getSampleRates(
         ChipItem(
             id = sampleRate.index,
             value = sampleRate,
-            name = strings[sampleRate.index],
+            name = strings.getOrElse(sampleRate.index) { "${sampleRate.value} Hz" },
             isSelected = sampleRate == selected
         )
     }
@@ -353,6 +353,7 @@ fun getSampleRates(
 /** Sample rate to fall back to when the current selection is not supported by [this] format. */
 fun RecordingFormat.defaultSampleRate(): SampleRate = when (this) {
     RecordingFormat.ThreeGp -> DefaultValues.Default3GpSampleRate
+    RecordingFormat.Opus -> SampleRate.SR16000
     RecordingFormat.M4a,
     RecordingFormat.Wav -> DefaultValues.DefaultSampleRate
 }
@@ -360,6 +361,7 @@ fun RecordingFormat.defaultSampleRate(): SampleRate = when (this) {
 /** Channel count to fall back to when the current selection is not supported by [this] format. */
 fun RecordingFormat.defaultChannelCount(): ChannelCount = when (this) {
     RecordingFormat.ThreeGp -> DefaultValues.Default3GpChannelCount
+    RecordingFormat.Opus -> ChannelCount.Mono
     RecordingFormat.M4a,
     RecordingFormat.Wav -> DefaultValues.DefaultChannelCount
 }

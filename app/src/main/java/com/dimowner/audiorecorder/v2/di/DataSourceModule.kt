@@ -6,6 +6,8 @@ import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.PrefsV2Impl
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
 import com.dimowner.audiorecorder.v2.data.RecordsDataSourceImpl
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -27,4 +29,8 @@ abstract class DataSourceModule {
     @Singleton
     @Binds
     abstract fun bindRecordsDataSource(impl: RecordsDataSourceImpl): RecordsDataSource
+
+    @Singleton
+    @Binds
+    abstract fun bindCalendarRepository(impl: CalendarRepositoryImpl): CalendarRepository
 }

@@ -27,11 +27,14 @@ import com.dimowner.audiorecorder.v2.audio.AudioRecorderDelegate
 import com.dimowner.audiorecorder.v2.data.FileDataSource
 import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.BitRate
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
+import com.dimowner.audiorecorder.v2.data.template.IdentifierRules
+import com.dimowner.audiorecorder.v2.data.template.TemplateEngine
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +63,8 @@ class SettingsViewModelAudioSourceTest {
     private lateinit var audioPlayer: PlayerContractNew.Player
     private lateinit var audioRecorderDelegate: AudioRecorderDelegate
     private lateinit var analyticsTracker: AnalyticsTracker
+    private lateinit var calendarRepository: CalendarRepository
+    private lateinit var safStorageManager: com.dimowner.audiorecorder.v2.data.saf.SafStorageManager
     private lateinit var context: Context
 
     @Before
@@ -70,7 +75,15 @@ class SettingsViewModelAudioSourceTest {
         audioPlayer = mockk(relaxed = true)
         audioRecorderDelegate = mockk(relaxed = true)
         analyticsTracker = mockk(relaxed = true)
+        calendarRepository = mockk(relaxed = true)
+        safStorageManager = mockk(relaxed = true)
         context = ApplicationProvider.getApplicationContext()
+        every { prefs.folderPattern } returns TemplateEngine.DEFAULT_FOLDER_PATTERN
+        every { prefs.filePattern } returns TemplateEngine.DEFAULT_FILE_PATTERN
+        every { prefs.identifierRulesText } returns IdentifierRules.DEFAULT_RULES_TEXT
+        every { prefs.seenIdentifiers } returns emptySet()
+        every { calendarRepository.getActiveEvent(any()) } returns null
+        every { safStorageManager.displayPath(any()) } returns ""
     }
 
     /**
@@ -103,9 +116,12 @@ class SettingsViewModelAudioSourceTest {
             audioPlayer = audioPlayer,
             audioRecorderDelegate = audioRecorderDelegate,
             analyticsTracker = analyticsTracker,
+            calendarRepository = calendarRepository,
+            safStorageManager = safStorageManager,
+            calendarReminderScheduler = mockk(relaxed = true),
             mainDispatcher = Dispatchers.Unconfined,
             ioDispatcher = Dispatchers.Unconfined,
-            context = context,
+            appContext = context,
         )
     }
 

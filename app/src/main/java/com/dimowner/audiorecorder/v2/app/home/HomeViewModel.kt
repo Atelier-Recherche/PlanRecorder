@@ -70,13 +70,25 @@ import com.dimowner.audiorecorder.v2.audio.RecordingState
 import com.dimowner.audiorecorder.v2.audio.readDescription
 import com.dimowner.audiorecorder.v2.data.FileDataSource
 import com.dimowner.audiorecorder.v2.data.PrefsV2
+import com.dimowner.audiorecorder.v2.data.RecordingSessionContext
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
 import com.dimowner.audiorecorder.v2.data.extensions.isLostRecord
 import com.dimowner.audiorecorder.v2.data.extensions.copyFile
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.PlaybackSpeed
 import com.dimowner.audiorecorder.v2.data.model.Record
+import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
+import com.dimowner.audiorecorder.v2.data.saf.SafStorageManager
+import com.dimowner.audiorecorder.v2.data.markers.ObsidianMarkersMarkdown
+import com.dimowner.audiorecorder.v2.data.markers.RecordingMarkersStore
+import com.dimowner.audiorecorder.v2.data.template.FolderMatcher
+import com.dimowner.audiorecorder.v2.data.template.IdentifierRules
+import com.dimowner.audiorecorder.v2.data.template.ResolvedPath
+import com.dimowner.audiorecorder.v2.data.template.TemplateEngine
 import com.dimowner.audiorecorder.v2.analytics.AnalyticsTracker
+import com.dimowner.audiorecorder.v2.audio.AudioPeakNormalizer
+import com.dimowner.audiorecorder.v2.app.CourseRecordingWidget
 import com.dimowner.audiorecorder.v2.data.model.isSystemAudioCaptureSupported
 import com.dimowner.audiorecorder.v2.di.qualifiers.IoDispatcher
 import com.dimowner.audiorecorder.v2.di.qualifiers.MainDispatcher
@@ -105,6 +117,10 @@ class HomeViewModel @Inject constructor(
     private val audioPlayer: PlayerContractNew.Player,
     private val audioManagerHelper: AudioManagerHelper,
     private val analyticsTracker: AnalyticsTracker,
+    private val calendarRepository: CalendarRepository,
+    private val recordingSessionContext: RecordingSessionContext,
+    private val safStorageManager: SafStorageManager,
+    private val recordingMarkersStore: RecordingMarkersStore,
     @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationContext context: Context,
@@ -500,14 +516,20 @@ class HomeViewModel @Inject constructor(
             if (recordedRecordId >= 0) {
                 if (_state.value.isDeleteRecordingProgressRequested) {
                     moveRecordToRecycle(recordedRecordId, false)
-                } else if (prefs.askToRenameAfterRecordingStopped) {
+                } else if (prefs.askToRenameAfterRecordingStopped || !prefs.safRootTreeUri.isNullOrBlank()) {
                     updateState()
                     val record = recordsDataSource.getRecord(recordedRecordId)
+                    val suggested = resolveSuggestedSave()
                     withContext(mainDispatcher) {
                         _state.value = _state.value.copy(
-                            recordName = recordName ?: _state.value.recordName,
+                            recordName = suggested.resolved.fileBaseName.ifBlank {
+                                recordName ?: _state.value.recordName
+                            },
                             recordDescription = record?.description ?: "",
                             recordFormat = record?.format ?: "",
+                            destinationFolder = suggested.resolved.relativeDir,
+                            folderSuggestions = suggested.folderSuggestions,
+                            showDestinationFolder = !prefs.safRootTreeUri.isNullOrBlank(),
                             showRenameAfterRecordingDialog = true,
                             keepScreenOn = false,
                         )
@@ -519,6 +541,99 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private data class SuggestedSave(
+        val resolved: ResolvedPath,
+        val folderSuggestions: List<String>,
+    )
+
+    private fun resolveSuggestedSave(): SuggestedSave {
+        val calendarId = prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
+        val timeMillis = recordingSessionContext.capturedAtMillis.takeIf { it > 0 }
+            ?: System.currentTimeMillis()
+        val activeEvents = calendarRepository.getActiveEvents(timeMillis, calendarId)
+        val ambiguous = activeEvents.size > 1
+        val event = when {
+            recordingSessionContext.capturedEvent != null && !ambiguous ->
+                recordingSessionContext.capturedEvent
+            activeEvents.size == 1 -> activeEvents.first()
+            else -> null
+        }
+        val root = safStorageManager.getRoot(prefs.safRootTreeUri)
+        val rootFolders = root?.let { safStorageManager.listDirectoryNames(it) }.orEmpty()
+        val rules = prefs.identifierRulesText
+        val idFolders = FolderMatcher.listUeFolders(rootFolders, rules)
+        val seenFromPrefs = prefs.seenIdentifiers.toList().sorted()
+        rememberSeenIds(rootFolders, event?.title)
+
+        val draft = TemplateEngine.resolve(
+            event = event,
+            timeMillis = timeMillis,
+            folderPattern = prefs.folderPattern,
+            filePattern = prefs.filePattern,
+            rootFolderNames = rootFolders,
+            identifierRulesText = rules,
+        )
+        val existing = if (root != null) {
+            safStorageManager.ensureDir(root, draft.relativeDir)
+                ?.let { safStorageManager.listFileNames(it) }
+                .orEmpty()
+        } else {
+            emptyList()
+        }
+        val resolved = TemplateEngine.resolve(
+            event = event,
+            timeMillis = timeMillis,
+            folderPattern = prefs.folderPattern,
+            filePattern = prefs.filePattern,
+            existingNamesInTargetDir = existing,
+            rootFolderNames = rootFolders,
+            identifierRulesText = rules,
+        )
+
+        val suggestions = when {
+            event == null || ambiguous -> (idFolders + seenFromPrefs).distinct()
+            else -> {
+                val matched = FolderMatcher.rankMatches(
+                    resolved.relativeDir.substringAfterLast('/'),
+                    rootFolders,
+                    rules,
+                ).map { it.folderName }
+                (listOf(resolved.relativeDir) + matched + idFolders + seenFromPrefs).distinct()
+            }
+        }
+
+        val finalResolved = if ((event == null || ambiguous) && idFolders.isNotEmpty()) {
+            // Prefill with first ID folder; derive tags from the folder name itself.
+            val pick = idFolders.first()
+            val existingInPick = root?.let {
+                safStorageManager.ensureDir(it, pick)?.let { d -> safStorageManager.listFileNames(d) }
+            }.orEmpty()
+            val synthetic = com.dimowner.audiorecorder.v2.data.calendar.CalendarEvent(
+                title = pick,
+                calendarName = "",
+                description = null,
+                startTimeMillis = timeMillis,
+                endTimeMillis = timeMillis,
+            )
+            TemplateEngine.resolve(
+                event = synthetic,
+                timeMillis = timeMillis,
+                folderPattern = "[id] [title_rest]",
+                filePattern = prefs.filePattern,
+                existingNamesInTargetDir = existingInPick,
+                rootFolderNames = rootFolders,
+                identifierRulesText = rules,
+            ).copy(relativeDir = pick)
+        } else {
+            resolved
+        }
+
+        return SuggestedSave(
+            resolved = finalResolved,
+            folderSuggestions = suggestions,
+        )
     }
 
     private fun handleNewRecordingPartStarted(recordId: Long) {
@@ -979,7 +1094,8 @@ class HomeViewModel @Inject constructor(
     private fun updateActiveRecordNameAndDescription(
         newName: String,
         newDescription: String,
-        writeToFile: Boolean
+        writeToFile: Boolean,
+        destinationFolder: String,
     ) {
         showLoadingProgress(true)
         viewModelScope.launch(ioDispatcher) {
@@ -987,9 +1103,116 @@ class HomeViewModel @Inject constructor(
             if (activeRecord != null) {
                 performRenameActiveRecord(newName, activeRecord)
                 recordsDataSource.updateRecordDescription(activeRecord.id, newDescription, writeToFile)
+                val renamed = recordsDataSource.getRecord(activeRecord.id) ?: activeRecord
+                exportToSafIfConfigured(renamed, destinationFolder, newName)
+                recordingSessionContext.clear()
                 updateState(false)
             }
         }
+    }
+
+    private suspend fun exportToSafIfConfigured(
+        record: Record,
+        destinationFolder: String,
+        fileBaseName: String,
+    ) {
+        val treeUri = prefs.safRootTreeUri
+        if (treeUri.isNullOrBlank()) return
+        val root = safStorageManager.getRoot(treeUri)
+        if (root == null) {
+            emitEvent(
+                HomeScreenEvent.ShowErrorSnack(
+                    getApplication<Application>().getString(R.string.error_saf_export)
+                )
+            )
+            return
+        }
+        val dir = safStorageManager.ensureDir(root, destinationFolder)
+        if (dir == null) {
+            emitEvent(
+                HomeScreenEvent.ShowErrorSnack(
+                    getApplication<Application>().getString(R.string.error_saf_export)
+                )
+            )
+            return
+        }
+        rememberSeenIds(listOf(destinationFolder), destinationFolder)
+        val localFile = File(record.path)
+        var exportFile = localFile
+        var extension = when {
+            record.format.equals(RecordingFormat.Opus.value, ignoreCase = true) -> "opus"
+            localFile.extension.equals("oga", ignoreCase = true) -> "opus"
+            localFile.extension.equals("ogg", ignoreCase = true) &&
+                prefs.settingRecordingFormat == RecordingFormat.Opus -> "opus"
+            localFile.extension.isNotBlank() -> localFile.extension
+            else -> record.format.ifBlank { "m4a" }
+        }
+        var tempNormalized: File? = null
+        if (prefs.normalizeOnExport) {
+            tempNormalized = AudioPeakNormalizer.normalizeToWav(
+                localFile,
+                getApplication<Application>().cacheDir,
+            )
+            if (tempNormalized != null) {
+                exportFile = tempNormalized
+                extension = "wav"
+            }
+        }
+        val fileName = "$fileBaseName.$extension"
+        val uri = safStorageManager.copyFile(
+            localFile = exportFile,
+            dir = dir,
+            fileName = fileName,
+            mimeType = safStorageManager.mimeForExtension(extension),
+        )
+        tempNormalized?.delete()
+
+        val markers = recordingMarkersStore.snapshot()
+        if (markers.isNotEmpty() && uri != null) {
+            val mdName = "$fileBaseName.md"
+            val md = ObsidianMarkersMarkdown.build(fileName, markers)
+            safStorageManager.writeTextFile(dir, mdName, md)
+        }
+        recordingMarkersStore.clear()
+        CourseRecordingWidget.requestUpdate(getApplication())
+
+        if (uri != null) {
+            emitEvent(
+                HomeScreenEvent.ShowInfoSnack(
+                    getApplication<Application>().getString(
+                        R.string.msg_exported_to_saf,
+                        "$destinationFolder/$fileName",
+                    )
+                )
+            )
+        } else {
+            emitEvent(
+                HomeScreenEvent.ShowErrorSnack(
+                    getApplication<Application>().getString(R.string.error_saf_export)
+                )
+            )
+        }
+    }
+
+    private fun rememberSeenIds(texts: List<String>, vararg extra: String?) {
+        val rules = prefs.identifierRulesText
+        val found = (texts + extra.toList()).mapNotNull { IdentifierRules.extractId(it, rules) }
+        if (found.isEmpty()) return
+        prefs.seenIdentifiers = prefs.seenIdentifiers + found
+    }
+
+    private fun addRecordingMarker(note: String) {
+        val time = recordingService?.recordingState?.value?.durationMills ?: 0L
+        recordingMarkersStore.add(time, note)
+        _state.value = _state.value.copy(showMarkerDialog = false)
+        emitEvent(
+            HomeScreenEvent.ShowInfoSnack(
+                getApplication<Application>().getString(
+                    R.string.marker_added,
+                    ObsidianMarkersMarkdown.formatTimecode(time),
+                )
+            )
+        )
     }
 
     fun showDescriptionDialog() {
@@ -1293,7 +1516,12 @@ class HomeViewModel @Inject constructor(
                 }
             }
             is HomeScreenAction.UpdateActiveRecordNameAndDescription -> {
-                updateActiveRecordNameAndDescription(action.newName, action.newDescription, action.writeToFile)
+                updateActiveRecordNameAndDescription(
+                    action.newName,
+                    action.newDescription,
+                    action.writeToFile,
+                    action.destinationFolder,
+                )
             }
             HomeScreenAction.OnSeekStart -> handleSeekStart()
             is HomeScreenAction.OnSeekProgress -> handleSeekProgress(action.mills)
@@ -1346,6 +1574,13 @@ class HomeViewModel @Inject constructor(
             HomeScreenAction.ShowDescriptionDialog -> showDescriptionDialog()
             is HomeScreenAction.SaveActiveRecordDescription -> saveActiveRecordDescription(action.description, action.writeToFile)
             HomeScreenAction.DismissDescriptionDialog -> dismissDescriptionDialog()
+            HomeScreenAction.ShowMarkerDialog -> {
+                _state.value = _state.value.copy(showMarkerDialog = true)
+            }
+            HomeScreenAction.DismissMarkerDialog -> {
+                _state.value = _state.value.copy(showMarkerDialog = false)
+            }
+            is HomeScreenAction.AddRecordingMarker -> addRecordingMarker(action.note)
         }
     }
 
@@ -1542,9 +1777,14 @@ data class HomeScreenState(
     val keepScreenOn: Boolean = false,
     // Show rename dialog after recording stopped
     val showRenameAfterRecordingDialog: Boolean = false,
+    val destinationFolder: String = "",
+    val folderSuggestions: List<String> = emptyList(),
+    val showDestinationFolder: Boolean = false,
     // Show description edit dialog
     val showDescriptionDialog: Boolean = false,
     val saveDescriptionToFile: Boolean = true,
+    // Marker note dialog during recording
+    val showMarkerDialog: Boolean = false,
     // Broken record detection and restoration
     val showBrokenRecordDialog: Boolean = false,
     val brokenRecord: Record? = null,
@@ -1574,7 +1814,12 @@ sealed class HomeScreenAction {
     data class RestoreRecordFromRecycle(val recordId: Long) : HomeScreenAction()
     data object SaveActiveRecordAs : HomeScreenAction()
     data class RenameActiveRecord(val newName: String) : HomeScreenAction()
-    data class UpdateActiveRecordNameAndDescription(val newName: String, val newDescription: String, val writeToFile: Boolean) : HomeScreenAction()
+    data class UpdateActiveRecordNameAndDescription(
+        val newName: String,
+        val newDescription: String,
+        val writeToFile: Boolean,
+        val destinationFolder: String = "",
+    ) : HomeScreenAction()
     data object OnSeekStart : HomeScreenAction()
     data object OnPlayClick : HomeScreenAction()
     data object OnPauseClick : HomeScreenAction()
@@ -1606,6 +1851,9 @@ sealed class HomeScreenAction {
     data object ShowDescriptionDialog : HomeScreenAction()
     data class SaveActiveRecordDescription(val description: String, val writeToFile: Boolean) : HomeScreenAction()
     data object DismissDescriptionDialog : HomeScreenAction()
+    data object ShowMarkerDialog : HomeScreenAction()
+    data object DismissMarkerDialog : HomeScreenAction()
+    data class AddRecordingMarker(val note: String) : HomeScreenAction()
 }
 
 sealed class HomeScreenEvent {

@@ -45,7 +45,8 @@ internal fun RecordSettingsPanel(
         val infoFormat = htmlStringResources(
             R.string.info_format_m4a_html,
             R.string.info_format_wav_html,
-            R.string.info_format_3gp_html
+            R.string.info_format_3gp_html,
+            R.string.info_format_opus_html,
         )
         SettingSelector(
             name = stringResource(id = R.string.recording_format),

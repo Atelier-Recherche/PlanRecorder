@@ -33,6 +33,8 @@ enum class AudioSource(val value: Int) {
     DEFAULT(MediaRecorder.AudioSource.DEFAULT),
     MIC(MediaRecorder.AudioSource.MIC),
     VOICE_COMMUNICATION(MediaRecorder.AudioSource.VOICE_COMMUNICATION),
+    /** Tuned for speech; platform may apply noise reduction suited to voice. */
+    VOICE_RECOGNITION(MediaRecorder.AudioSource.VOICE_RECOGNITION),
     UNPROCESSED(MediaRecorder.AudioSource.UNPROCESSED),
 
     /**

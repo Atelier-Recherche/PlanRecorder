@@ -16,6 +16,7 @@
 package com.dimowner.audiorecorder.v2.audio
 
 import android.content.Context
+import android.media.AudioManager
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
@@ -80,10 +81,13 @@ abstract class MediaRecorderBase(
 
     @Volatile private var _isRecording: Boolean = false
     @Volatile private var _isPaused: Boolean = false
+    @Volatile private var assignedAudioSessionId: Int = -1
     override val isRecording: Boolean
         get() = _isRecording
     override val isPaused: Boolean
         get() = _isPaused
+
+    override fun audioSessionId(): Int = assignedAudioSessionId
 
     /**
      * Dedicated thread the amplitude ticks run on, alive only for the duration of a recording.
@@ -179,6 +183,7 @@ abstract class MediaRecorderBase(
                     setOnInfoListener { _, what, _ -> handleRecorderInfo(what) }
                     setOnErrorListener { _, what, extra -> handleRecorderError(what, extra) }
                     setOutputFile(outputFile.absolutePath)
+                    assignedAudioSessionId = assignAudioSessionId(this)
                 }
                 recorder.prepare()
                 recorder.start()
@@ -191,11 +196,13 @@ abstract class MediaRecorderBase(
                 true
             } catch (e: IOException) {
                 Timber.e(e, "prepare() failed")
+                assignedAudioSessionId = -1
                 releaseRecorder()
                 emitEvent(RecorderEvent.OnError(RecorderInitException()))
                 false
             } catch (e: IllegalStateException) {
                 Timber.e(e, "Recorder setup or start() failed due to illegal state")
+                assignedAudioSessionId = -1
                 releaseRecorder()
                 emitEvent(RecorderEvent.OnError(RecorderInitException()))
                 false
@@ -203,6 +210,7 @@ abstract class MediaRecorderBase(
                 // MediaRecorder.start() throws a plain RuntimeException (not a subclass) when
                 // the hardware source is unavailable or the codec rejects the configuration.
                 Timber.e(e, "start() failed")
+                assignedAudioSessionId = -1
                 releaseRecorder()
                 emitEvent(RecorderEvent.OnError(RecorderInitException()))
                 false
@@ -446,9 +454,29 @@ abstract class MediaRecorderBase(
      * the sampling thread cannot pick up an instance that is about to be released. It can still
      * be mid-read when we release, which is why the amplitude read is guarded as well.
      */
+    /**
+     * Assigns an audio session for effects (AGC). Uses reflection because some compile SDKs
+     * omit [MediaRecorder] session APIs from stubs even though they exist at runtime (API 29+).
+     */
+    private fun assignAudioSessionId(recorder: MediaRecorder): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return -1
+        return try {
+            val am = applicationContext.getSystemService(AudioManager::class.java) ?: return -1
+            val sessionId = am.generateAudioSessionId()
+            if (sessionId <= 0) return -1
+            MediaRecorder::class.java.getMethod("setAudioSessionId", Int::class.javaPrimitiveType)
+                .invoke(recorder, sessionId)
+            sessionId
+        } catch (e: Exception) {
+            Timber.d(e, "MediaRecorder.setAudioSessionId unavailable")
+            -1
+        }
+    }
+
     private fun releaseRecorder() {
         val recorder = mediaRecorder
         mediaRecorder = null
+        assignedAudioSessionId = -1
         releaseRecorder(recorder)
     }
 

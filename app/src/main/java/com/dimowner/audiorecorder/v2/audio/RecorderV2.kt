@@ -21,6 +21,9 @@ interface RecorderV2 {
     fun stopRecording(): Boolean
     val isRecording: Boolean
     val isPaused: Boolean
+
+    /** Audio session id for effects such as AGC, or a negative value if unavailable. */
+    fun audioSessionId(): Int = -1
 }
 
 sealed class RecorderEvent {

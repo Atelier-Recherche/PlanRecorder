@@ -20,7 +20,7 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 enum class RecordingFormat(val value: String, val index: Int) : Parcelable {
-    M4a("m4a", 0), Wav("wav", 1), ThreeGp("3gp", 2);
+    M4a("m4a", 0), Wav("wav", 1), ThreeGp("3gp", 2), Opus("opus", 3);
 
     /** Recording capabilities (supported sample rates, bitrates and channel counts) of this format. */
     val config: FormatConfig
@@ -64,15 +64,37 @@ enum class RecordingFormat(val value: String, val index: Int) : Parcelable {
                 supportedBitRates = emptyList(),
                 supportedChannelCounts = listOf(ChannelCount.Mono),
             )
+            Opus -> FormatConfig(
+                format = this,
+                supportedSampleRates = listOf(
+                    SampleRate.SR16000,
+                    SampleRate.SR48000,
+                ),
+                supportedBitRates = listOf(
+                    BitRate.BR16,
+                    BitRate.BR24,
+                    BitRate.BR32,
+                    BitRate.BR48,
+                    BitRate.BR64,
+                    BitRate.BR96,
+                ),
+                supportedChannelCounts = listOf(ChannelCount.Mono, ChannelCount.Stereo),
+            )
         }
 
     /** Whether this format is recorded with a user-configurable bitrate. */
     val hasBitrate: Boolean get() = config.hasBitrate
+
+    companion object {
+        fun availableFormats(): List<RecordingFormat> {
+            return entries.filter { it != Opus || isOpusRecordingSupported() }
+        }
+    }
 }
 
+fun isOpusRecordingSupported(): Boolean =
+    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q
+
 fun String.convertToRecordingFormat(): RecordingFormat? {
-    return if (this.equals(RecordingFormat.M4a.value, true)) RecordingFormat.M4a
-    else if (this.equals(RecordingFormat.Wav.value, true)) RecordingFormat.Wav
-    else if (this.equals(RecordingFormat.ThreeGp.value, true)) RecordingFormat.ThreeGp
-    else null
+    return RecordingFormat.entries.firstOrNull { it.value.equals(this, ignoreCase = true) }
 }

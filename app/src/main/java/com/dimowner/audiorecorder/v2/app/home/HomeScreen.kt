@@ -426,7 +426,8 @@ internal fun HomeScreen(
             onResumeRecordingClick = { onAction(HomeScreenAction.OnResumeRecordingClick) },
             onStopRecordingClick = { onAction(HomeScreenAction.OnStopRecordingClick) },
             onDeleteRecordingClick = { onAction(HomeScreenAction.OnDeleteRecordingProgressClick) },
-            bottomBarState = uiState.bottomBarState
+            bottomBarState = uiState.bottomBarState,
+            onAddMarkerClick = { onAction(HomeScreenAction.ShowMarkerDialog) },
         )
     }
 
@@ -575,6 +576,15 @@ internal fun HomeScreen(
                             onAction(HomeScreenAction.DismissDescriptionDialog)
                         }
                     )
+                } else if (uiState.showMarkerDialog) {
+                    MarkerNoteDialog(
+                        onAcceptClick = { note ->
+                            onAction(HomeScreenAction.AddRecordingMarker(note))
+                        },
+                        onDismissClick = {
+                            onAction(HomeScreenAction.DismissMarkerDialog)
+                        },
+                    )
                 }
                 if (uiState.showLostRecordsDialog) {
                     LostRecordsDialog(
@@ -594,8 +604,15 @@ internal fun HomeScreen(
                         recordName = uiState.recordName,
                         recordDescription = uiState.recordDescription,
                         isWriteToFileSupported = isDescriptionFileWriteSupported(uiState.recordFormat),
-                        onAcceptClick = { newName, newDescription, writeToFile ->
-                            onAction(HomeScreenAction.UpdateActiveRecordNameAndDescription(newName, newDescription, writeToFile))
+                        onAcceptClick = { newName, newDescription, writeToFile, destinationFolder ->
+                            onAction(
+                                HomeScreenAction.UpdateActiveRecordNameAndDescription(
+                                    newName,
+                                    newDescription,
+                                    writeToFile,
+                                    destinationFolder,
+                                )
+                            )
                         },
                         onDismissClick = {
                             //Do nothing, onDontAskAgain triggers, it will dismiss the dialog
@@ -603,7 +620,10 @@ internal fun HomeScreen(
                         onDontAskAgain = { dontAskAgain ->
                             onAction(HomeScreenAction.DismissRenameAfterRecordingDialog(dontAskAgain))
                         },
-                        showDontAskAgain = true
+                        showDontAskAgain = true,
+                        destinationFolder = uiState.destinationFolder,
+                        showDestinationFolder = uiState.showDestinationFolder,
+                        folderSuggestions = uiState.folderSuggestions,
                     )
                 }
 //                if (uiState.showLocalStorageInfoDialog) {

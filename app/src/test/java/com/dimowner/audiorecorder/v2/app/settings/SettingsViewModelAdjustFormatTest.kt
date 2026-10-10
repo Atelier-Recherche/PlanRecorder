@@ -57,6 +57,8 @@ class SettingsViewModelAdjustFormatTest {
     private lateinit var audioPlayer: PlayerContractNew.Player
     private lateinit var audioRecorderDelegate: AudioRecorderDelegate
     private lateinit var analyticsTracker: AnalyticsTracker
+    private lateinit var calendarRepository: com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
+    private lateinit var safStorageManager: com.dimowner.audiorecorder.v2.data.saf.SafStorageManager
     private lateinit var context: Context
 
     @Before
@@ -67,7 +69,15 @@ class SettingsViewModelAdjustFormatTest {
         audioPlayer = mockk(relaxed = true)
         audioRecorderDelegate = mockk(relaxed = true)
         analyticsTracker = mockk(relaxed = true)
+        calendarRepository = mockk(relaxed = true)
+        safStorageManager = mockk(relaxed = true)
         context = ApplicationProvider.getApplicationContext()
+        every { prefs.folderPattern } returns com.dimowner.audiorecorder.v2.data.template.TemplateEngine.DEFAULT_FOLDER_PATTERN
+        every { prefs.filePattern } returns com.dimowner.audiorecorder.v2.data.template.TemplateEngine.DEFAULT_FILE_PATTERN
+        every { prefs.identifierRulesText } returns com.dimowner.audiorecorder.v2.data.template.IdentifierRules.DEFAULT_RULES_TEXT
+        every { prefs.seenIdentifiers } returns emptySet()
+        every { calendarRepository.getActiveEvent(any()) } returns null
+        every { safStorageManager.displayPath(any()) } returns ""
     }
 
     /**
@@ -99,9 +109,12 @@ class SettingsViewModelAdjustFormatTest {
             audioPlayer = audioPlayer,
             audioRecorderDelegate = audioRecorderDelegate,
             analyticsTracker = analyticsTracker,
+            calendarRepository = calendarRepository,
+            safStorageManager = safStorageManager,
+            calendarReminderScheduler = mockk(relaxed = true),
             mainDispatcher = Dispatchers.Unconfined,
             ioDispatcher = Dispatchers.Unconfined,
-            context = context,
+            appContext = context,
         )
     }
 

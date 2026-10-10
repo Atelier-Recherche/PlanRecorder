@@ -94,10 +94,25 @@ class FormatConfigTest {
     // -------------------------------------------------------------------------
 
     @Test
-    fun `hasBitrate is true only for M4a`() {
+    fun `hasBitrate is true for M4a and Opus`() {
         assertTrue(RecordingFormat.M4a.config.hasBitrate)
+        assertTrue(RecordingFormat.Opus.config.hasBitrate)
         assertFalse(RecordingFormat.Wav.config.hasBitrate)
         assertFalse(RecordingFormat.ThreeGp.config.hasBitrate)
+    }
+
+    @Test
+    fun `Opus config supports speech sample rates and bitrates`() {
+        val config = RecordingFormat.Opus.config
+        assertEquals(
+            listOf(SampleRate.SR16000, SampleRate.SR48000),
+            config.supportedSampleRates
+        )
+        assertTrue(config.supportedBitRates.contains(BitRate.BR32))
+        assertEquals(
+            listOf(ChannelCount.Mono, ChannelCount.Stereo),
+            config.supportedChannelCounts
+        )
     }
 
     @Test

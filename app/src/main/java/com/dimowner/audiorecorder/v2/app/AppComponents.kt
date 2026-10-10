@@ -554,13 +554,17 @@ fun UpdateNameAndDescriptionDialog(
     recordName: String,
     recordDescription: String,
     isWriteToFileSupported: Boolean,
-    onAcceptClick: (name: String, description: String, writeToFile: Boolean) -> Unit,
+    onAcceptClick: (name: String, description: String, writeToFile: Boolean, destinationFolder: String) -> Unit,
     onDismissClick: () -> Unit,
     onDontAskAgain: (Boolean) -> Unit = {},
     showDontAskAgain: Boolean = false,
+    destinationFolder: String = "",
+    showDestinationFolder: Boolean = false,
+    folderSuggestions: List<String> = emptyList(),
 ) {
     val nameValue = remember { mutableStateOf(recordName) }
     val descriptionValue = remember { mutableStateOf(recordDescription) }
+    val destinationValue = remember { mutableStateOf(destinationFolder) }
     val writeToFile = remember { mutableStateOf(isWriteToFileSupported) }
     val dontAskAgainChecked = remember { mutableStateOf(false) }
     val effectiveWriteToFile = isWriteToFileSupported && writeToFile.value
@@ -574,6 +578,11 @@ fun UpdateNameAndDescriptionDialog(
     LaunchedEffect(recordDescription) {
         if (descriptionValue.value != recordDescription) {
             descriptionValue.value = recordDescription
+        }
+    }
+    LaunchedEffect(destinationFolder) {
+        if (destinationValue.value != destinationFolder) {
+            destinationValue.value = destinationFolder
         }
     }
 
@@ -606,6 +615,38 @@ fun UpdateNameAndDescriptionDialog(
                     } else null,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 )
+                if (showDestinationFolder) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = destinationValue.value,
+                        onValueChange = { destinationValue.value = it },
+                        label = { Text(text = stringResource(id = R.string.destination_folder)) },
+                        textStyle = TextStyle.Default.copy(fontSize = 16.sp),
+                        singleLine = true,
+                    )
+                    if (folderSuggestions.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = stringResource(id = R.string.folder_suggestions),
+                            fontSize = 13.sp,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Column {
+                            folderSuggestions.take(8).forEach { suggestion ->
+                                Text(
+                                    text = suggestion,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { destinationValue.value = suggestion }
+                                        .padding(vertical = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     modifier = Modifier.fillMaxWidth(),
@@ -686,7 +727,12 @@ fun UpdateNameAndDescriptionDialog(
             TextButton(
                 enabled = !isNameEmpty,
                 onClick = {
-                    onAcceptClick(nameValue.value, descriptionValue.value, effectiveWriteToFile)
+                    onAcceptClick(
+                        nameValue.value,
+                        descriptionValue.value,
+                        effectiveWriteToFile,
+                        destinationValue.value,
+                    )
                     if (showDontAskAgain) {
                         onDontAskAgain(dontAskAgainChecked.value)
                     }
@@ -717,9 +763,11 @@ fun UpdateNameAndDescriptionDialogPreview() {
         recordName = "Record-14",
         recordDescription = "Meeting notes",
         isWriteToFileSupported = true,
-        onAcceptClick = { _, _, _ -> },
+        onAcceptClick = { _, _, _, _ -> },
         onDismissClick = {},
         showDontAskAgain = true,
+        destinationFolder = "Seminaires/UE323 Technocraties III",
+        showDestinationFolder = true,
     )
 }
 

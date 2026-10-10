@@ -30,14 +30,13 @@ enum class BitRate(val value: Int, val index: Int): Parcelable {
     BR192(192000, 3),
     BR256(256000, 4),
     BR288(288000, 5),
+    /** Opus / speech-oriented bitrates (indices follow bit_rates2 array). */
+    BR16(16000, 6),
+    BR24(24000, 7),
+    BR32(32000, 8),
+    BR64(64000, 9),
 }
 
 fun Int.convertToBitRate(): BitRate? {
-    return if (this == BitRate.BR48.value) BitRate.BR48
-    else if (this == BitRate.BR96.value) BitRate.BR96
-    else if (this == BitRate.BR128.value) BitRate.BR128
-    else if (this == BitRate.BR192.value) BitRate.BR192
-    else if (this == BitRate.BR256.value) BitRate.BR256
-    else if (this == BitRate.BR288.value) BitRate.BR288
-    else null
+    return BitRate.entries.firstOrNull { it.value == this }
 }

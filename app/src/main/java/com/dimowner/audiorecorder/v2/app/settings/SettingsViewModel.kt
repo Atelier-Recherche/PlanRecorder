@@ -38,12 +38,18 @@ import com.dimowner.audiorecorder.v2.analytics.AnalyticsTracker
 import com.dimowner.audiorecorder.v2.data.FileDataSource
 import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarReminderScheduler
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
+import com.dimowner.audiorecorder.v2.data.saf.SafStorageManager
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.BitRate
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
 import com.dimowner.audiorecorder.v2.data.model.SampleRate
 import com.dimowner.audiorecorder.v2.data.model.isSystemAudioCaptureSupported
+import com.dimowner.audiorecorder.v2.data.template.IdentifierRules
+import com.dimowner.audiorecorder.v2.data.template.TemplateEngine
+import com.dimowner.audiorecorder.v2.app.CourseRecordingWidget
 import com.dimowner.audiorecorder.v2.di.qualifiers.IoDispatcher
 import com.dimowner.audiorecorder.v2.di.qualifiers.MainDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -64,10 +70,19 @@ internal class SettingsViewModel @Inject constructor(
     private val audioPlayer: PlayerContractNew.Player,
     private val audioRecorderDelegate: AudioRecorderDelegate,
     private val analyticsTracker: AnalyticsTracker,
+    private val calendarRepository: CalendarRepository,
+    private val safStorageManager: SafStorageManager,
+    private val calendarReminderScheduler: CalendarReminderScheduler,
     @param:MainDispatcher private val mainDispatcher: CoroutineDispatcher,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    @ApplicationContext context: Context,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
+
+    private var voiceFilterBackupFormat: RecordingFormat? = null
+    private var voiceFilterBackupBitRate: BitRate? = null
+    private var voiceFilterBackupSampleRate: SampleRate? = null
+    private var voiceFilterBackupChannelCount: ChannelCount? = null
+    private var voiceFilterBackupAudioSource: AudioSource? = null
 
     private val decimalFormat: DecimalFormat
 
@@ -76,10 +91,10 @@ internal class SettingsViewModel @Inject constructor(
     private val selectedBitRate = prefs.settingBitrate
     private val selectedChannelCount = prefs.settingChannelCount
 
-    private val formatsStrings = context.resources.getStringArray(R.array.formats2)
-    private val sampleRateStrings = context.resources.getStringArray(R.array.sample_rates2)
-    private val bitRateStrings = context.resources.getStringArray(R.array.bit_rates2)
-    private val channelCountsStrings = context.resources.getStringArray(R.array.channels)
+    private val formatsStrings = appContext.resources.getStringArray(R.array.formats2)
+    private val sampleRateStrings = appContext.resources.getStringArray(R.array.sample_rates2)
+    private val bitRateStrings = appContext.resources.getStringArray(R.array.bit_rates2)
+    private val channelCountsStrings = appContext.resources.getStringArray(R.array.channels)
 
     init {
         val formatSymbols = DecimalFormatSymbols(Locale.getDefault())
@@ -87,11 +102,11 @@ internal class SettingsViewModel @Inject constructor(
         decimalFormat = DecimalFormat("#.#", formatSymbols)
     }
 
-    private val _state: MutableState<SettingsState> = mutableStateOf(createDefaultState(context))
+    private val _state: MutableState<SettingsState> = mutableStateOf(createDefaultState())
 
     val state: State<SettingsState> = _state
 
-    private fun createDefaultState(context: Context): SettingsState {
+    private fun createDefaultState(): SettingsState {
         return SettingsState(
             isDynamicColors = prefs.isDynamicTheme,
             isDarkTheme = prefs.isDarkTheme,
@@ -101,12 +116,12 @@ internal class SettingsViewModel @Inject constructor(
             isRecordingSettingEditable = true,
             selectedNameFormat = prefs.settingNamingFormat.toNameFormatItem(prefs.customNameFormat),
             nameFormats = makeNameFormats(prefs.customNameFormat),
-            recordingSettings = RecordingFormat.entries.toList().mapIndexed { index, format ->
+            recordingSettings = RecordingFormat.availableFormats().map { format ->
                 RecordingSetting(
                     recordingFormat = ChipItem(
-                        id = index,
+                        id = format.index,
                         value = format,
-                        name = formatsStrings[index],
+                        name = formatsStrings.getOrElse(format.index) { format.value },
                         isSelected = format == selectedFormat
                     ),
                     sampleRates = getSampleRates(
@@ -145,13 +160,53 @@ internal class SettingsViewModel @Inject constructor(
             totalRecordDuration = 0,
             availableSpaceMills = 0,
             availableSpaceBytes = 0,
-            appName = context.getString(R.string.app_name),
-            appVersion = context.getString(R.string.version, AndroidUtils.getAppVersion(context)),
+            appName = appContext.getString(R.string.app_name),
+            appVersion = appContext.getString(R.string.version, AndroidUtils.getAppVersion(appContext)),
             maxRecordingDurationMinutes = prefs.maxRecordingDurationMills / 60000,
             recordAuthorName = prefs.recordAuthorName,
             isLegacyAppUser = prefs.isLegacyAppUser,
             selectedAudioSource = prefs.settingAudioSource,
             audioSourceOptions = supportedAudioSources(),
+            safRootTreeUri = prefs.safRootTreeUri,
+            safRootDisplayPath = safStorageManager.displayPath(prefs.safRootTreeUri),
+            folderPattern = prefs.folderPattern,
+            filePattern = prefs.filePattern,
+            patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
+            voiceFilterEnabled = prefs.voiceFilterEnabled,
+            selectedCalendarId = prefs.selectedCalendarId,
+            availableCalendars = emptyList(),
+            identifierRulesText = prefs.identifierRulesText,
+            seenIdentifiersText = prefs.seenIdentifiers.sorted().joinToString(", "),
+            agcLiveEnabled = prefs.agcLiveEnabled,
+            normalizeOnExport = prefs.normalizeOnExport,
+            calendarReminderEnabled = prefs.calendarReminderEnabled,
+            calendarReminderMinutes = prefs.calendarReminderMinutes,
+        )
+    }
+
+    private fun selectedCalendarFilter(): Long? =
+        prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
+
+    private fun buildPatternPreview(folderPattern: String, filePattern: String): String {
+        val event = calendarRepository.getActiveEvent(calendarId = selectedCalendarFilter())
+        val resolved = TemplateEngine.resolve(
+            event = event,
+            folderPattern = folderPattern,
+            filePattern = filePattern,
+            identifierRulesText = prefs.identifierRulesText,
+        )
+        return "${resolved.relativeDir}/${resolved.fileBaseName}.${prefs.settingRecordingFormat.value}"
+    }
+
+    private fun loadCalendarsIntoState() {
+        val calendars = calendarRepository.listCalendars().map {
+            val account = it.accountName?.let { acc -> " ($acc)" }.orEmpty()
+            CalendarOptionItem(id = it.id, label = it.displayName + account)
+        }
+        _state.value = _state.value.copy(
+            availableCalendars = calendars,
+            selectedCalendarId = prefs.selectedCalendarId,
+            patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
         )
     }
 
@@ -168,6 +223,10 @@ internal class SettingsViewModel @Inject constructor(
                 settings?.bitRates?.firstOrNull { it.isSelected }?.value,
                 settings?.channelCounts?.firstOrNull { it.isSelected }?.value,
             )
+            val calendars = calendarRepository.listCalendars().map {
+                val account = it.accountName?.let { acc -> " ($acc)" }.orEmpty()
+                CalendarOptionItem(id = it.id, label = it.displayName + account)
+            }
             withContext(mainDispatcher) {
                 _state.value = _state.value.copy(
                     isRecordingSettingEditable = !audioRecorderDelegate.provideAudioRecorder().isRecording,
@@ -178,6 +237,9 @@ internal class SettingsViewModel @Inject constructor(
                     // Load the selected audio source from preferences
                     selectedAudioSource = prefs.settingAudioSource,
                     audioSourceOptions = supportedAudioSources(),
+                    availableCalendars = calendars,
+                    selectedCalendarId = prefs.selectedCalendarId,
+                    patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
                 )
             }
             recordsDataSource.removeOutdatedTrashRecords()
@@ -347,7 +409,9 @@ internal class SettingsViewModel @Inject constructor(
             prefs.settingChannelCount = format.defaultChannelCount()
         }
         if (config.hasBitrate && !config.isBitRateSupported(prefs.settingBitrate)) {
-            prefs.settingBitrate = DefaultValues.DefaultBitRate
+            prefs.settingBitrate = config.supportedBitRates.firstOrNull { it == BitRate.BR32 }
+                ?: config.supportedBitRates.firstOrNull()
+                ?: DefaultValues.DefaultBitRate
         }
         return this.copy(
             recordingSettings = recordingSettings.map { recordingSetting ->
@@ -428,6 +492,115 @@ internal class SettingsViewModel @Inject constructor(
         _state.value = _state.value.copy(recordAuthorName = trimmed)
     }
 
+    fun setSafRootTreeUri(uri: String?) {
+        prefs.safRootTreeUri = uri
+        _state.value = _state.value.copy(
+            safRootTreeUri = uri,
+            safRootDisplayPath = safStorageManager.displayPath(uri),
+        )
+    }
+
+    fun setFolderPattern(pattern: String) {
+        prefs.folderPattern = pattern
+        _state.value = _state.value.copy(
+            folderPattern = pattern,
+            patternPreview = buildPatternPreview(pattern, prefs.filePattern),
+        )
+    }
+
+    fun setFilePattern(pattern: String) {
+        prefs.filePattern = pattern
+        _state.value = _state.value.copy(
+            filePattern = pattern,
+            patternPreview = buildPatternPreview(prefs.folderPattern, pattern),
+        )
+    }
+
+    fun setVoiceFilterEnabled(enabled: Boolean) {
+        if (enabled == prefs.voiceFilterEnabled) return
+        if (enabled) {
+            voiceFilterBackupFormat = prefs.settingRecordingFormat
+            voiceFilterBackupBitRate = prefs.settingBitrate
+            voiceFilterBackupSampleRate = prefs.settingSampleRate
+            voiceFilterBackupChannelCount = prefs.settingChannelCount
+            voiceFilterBackupAudioSource = prefs.settingAudioSource
+            prefs.voiceFilterEnabled = true
+            if (RecordingFormat.Opus in RecordingFormat.availableFormats()) {
+                selectRecordingFormat(RecordingFormat.Opus)
+                selectBitrate(BitRate.BR32)
+                selectSampleRate(SampleRate.SR16000)
+                selectChannelCount(ChannelCount.Mono)
+            }
+            setAudioSource(AudioSource.VOICE_RECOGNITION)
+        } else {
+            prefs.voiceFilterEnabled = false
+            voiceFilterBackupFormat?.let { selectRecordingFormat(it) }
+            voiceFilterBackupBitRate?.let { selectBitrate(it) }
+            voiceFilterBackupSampleRate?.let { selectSampleRate(it) }
+            voiceFilterBackupChannelCount?.let { selectChannelCount(it) }
+            voiceFilterBackupAudioSource?.let { setAudioSource(it) }
+        }
+        _state.value = _state.value.copy(voiceFilterEnabled = enabled)
+    }
+
+    fun setSelectedCalendarId(calendarId: Long) {
+        prefs.selectedCalendarId = calendarId
+        _state.value = _state.value.copy(
+            selectedCalendarId = calendarId,
+            patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
+        )
+        calendarReminderScheduler.reschedule()
+        CourseRecordingWidget.requestUpdate(appContext)
+    }
+
+    fun setIdentifierRulesText(text: String) {
+        val normalized = IdentifierRules.formatRules(IdentifierRules.parseRules(text))
+        prefs.identifierRulesText = normalized
+        _state.value = _state.value.copy(
+            identifierRulesText = normalized,
+            patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
+        )
+    }
+
+    fun setAgcLiveEnabled(enabled: Boolean) {
+        prefs.agcLiveEnabled = enabled
+        _state.value = _state.value.copy(agcLiveEnabled = enabled)
+    }
+
+    fun setNormalizeOnExport(enabled: Boolean) {
+        prefs.normalizeOnExport = enabled
+        _state.value = _state.value.copy(normalizeOnExport = enabled)
+    }
+
+    fun setCalendarReminderEnabled(enabled: Boolean) {
+        prefs.calendarReminderEnabled = enabled
+        _state.value = _state.value.copy(calendarReminderEnabled = enabled)
+        calendarReminderScheduler.reschedule()
+    }
+
+    fun setCalendarReminderMinutes(minutes: Int) {
+        prefs.calendarReminderMinutes = minutes
+        _state.value = _state.value.copy(calendarReminderMinutes = prefs.calendarReminderMinutes)
+        calendarReminderScheduler.reschedule()
+    }
+
+    fun insertPatternTag(target: PatternField, tag: String) {
+        when (target) {
+            PatternField.Folder -> setFolderPattern(prefs.folderPattern + tag)
+            PatternField.File -> setFilePattern(prefs.filePattern + tag)
+        }
+    }
+
+    fun refreshCalendars() {
+        viewModelScope.launch(ioDispatcher) {
+            withContext(mainDispatcher) {
+                loadCalendarsIntoState()
+                calendarReminderScheduler.reschedule()
+                CourseRecordingWidget.requestUpdate(appContext)
+            }
+        }
+    }
+
     fun onAction(action: SettingsScreenAction) {
         when (action) {
             SettingsScreenAction.InitSettingsScreen -> initSettings()
@@ -448,6 +621,18 @@ internal class SettingsViewModel @Inject constructor(
             SettingsScreenAction.ExecuteFirstRun -> executeFirstRun()
             is SettingsScreenAction.SetAppV2 -> handleUseAppV2(action.value)
             SettingsScreenAction.UnlockLegacyAppSwitch -> unlockLegacyAppSwitch()
+            is SettingsScreenAction.SetSafRootTreeUri -> setSafRootTreeUri(action.uri)
+            is SettingsScreenAction.SetFolderPattern -> setFolderPattern(action.pattern)
+            is SettingsScreenAction.SetFilePattern -> setFilePattern(action.pattern)
+            is SettingsScreenAction.SetVoiceFilterEnabled -> setVoiceFilterEnabled(action.enabled)
+            is SettingsScreenAction.SetSelectedCalendarId -> setSelectedCalendarId(action.calendarId)
+            is SettingsScreenAction.InsertPatternTag -> insertPatternTag(action.target, action.tag)
+            SettingsScreenAction.RefreshCalendars -> refreshCalendars()
+            is SettingsScreenAction.SetIdentifierRulesText -> setIdentifierRulesText(action.text)
+            is SettingsScreenAction.SetAgcLiveEnabled -> setAgcLiveEnabled(action.enabled)
+            is SettingsScreenAction.SetNormalizeOnExport -> setNormalizeOnExport(action.enabled)
+            is SettingsScreenAction.SetCalendarReminderEnabled -> setCalendarReminderEnabled(action.enabled)
+            is SettingsScreenAction.SetCalendarReminderMinutes -> setCalendarReminderMinutes(action.minutes)
         }
     }
 
@@ -515,4 +700,21 @@ internal sealed class SettingsScreenAction {
     data class SetRecordAuthorName(val name: String) : SettingsScreenAction()
     data object ExecuteFirstRun : SettingsScreenAction()
     data object UnlockLegacyAppSwitch : SettingsScreenAction()
+    data class SetSafRootTreeUri(val uri: String?) : SettingsScreenAction()
+    data class SetFolderPattern(val pattern: String) : SettingsScreenAction()
+    data class SetFilePattern(val pattern: String) : SettingsScreenAction()
+    data class SetVoiceFilterEnabled(val enabled: Boolean) : SettingsScreenAction()
+    data class SetSelectedCalendarId(val calendarId: Long) : SettingsScreenAction()
+    data class InsertPatternTag(val target: PatternField, val tag: String) : SettingsScreenAction()
+    data object RefreshCalendars : SettingsScreenAction()
+    data class SetIdentifierRulesText(val text: String) : SettingsScreenAction()
+    data class SetAgcLiveEnabled(val enabled: Boolean) : SettingsScreenAction()
+    data class SetNormalizeOnExport(val enabled: Boolean) : SettingsScreenAction()
+    data class SetCalendarReminderEnabled(val enabled: Boolean) : SettingsScreenAction()
+    data class SetCalendarReminderMinutes(val minutes: Int) : SettingsScreenAction()
+}
+
+enum class PatternField {
+    Folder,
+    File,
 }

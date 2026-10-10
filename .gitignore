@@ -6,3 +6,12 @@
 /build
 /captures
 .externalNativeBuild
+/app/build
+
+# Local release outputs (see scripts/release.ps1)
+/release/
+*.apk
+!art/**
+
+# Optional local-only override of the release script
+/scripts/release.local.ps1

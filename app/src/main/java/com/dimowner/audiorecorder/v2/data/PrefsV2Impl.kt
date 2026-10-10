@@ -55,6 +55,8 @@ import com.dimowner.audiorecorder.AppConstants.PREF_KEY_SETTING_NAMING_FORMAT
 import com.dimowner.audiorecorder.AppConstants.PREF_KEY_SETTING_RECORDING_FORMAT
 import com.dimowner.audiorecorder.AppConstants.PREF_KEY_SETTING_SAMPLE_RATE
 import com.dimowner.audiorecorder.AppConstantsV2
+import com.dimowner.audiorecorder.v2.data.template.IdentifierRules
+import com.dimowner.audiorecorder.v2.data.template.TemplateEngine
 
 /**
  * App V2 preferences implementation
@@ -315,6 +317,103 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var safRootTreeUri: String?
+        get() = sharedPreferences.getString(PREF_KEY_SAF_ROOT_TREE_URI, null)
+        set(value) {
+            sharedPreferences.edit {
+                putString(PREF_KEY_SAF_ROOT_TREE_URI, value)
+            }
+        }
+
+    override var folderPattern: String
+        get() = sharedPreferences.getString(
+            PREF_KEY_FOLDER_PATTERN,
+            TemplateEngine.DEFAULT_FOLDER_PATTERN
+        ) ?: TemplateEngine.DEFAULT_FOLDER_PATTERN
+        set(value) {
+            sharedPreferences.edit {
+                putString(PREF_KEY_FOLDER_PATTERN, value)
+            }
+        }
+
+    override var filePattern: String
+        get() = sharedPreferences.getString(
+            PREF_KEY_FILE_PATTERN,
+            TemplateEngine.DEFAULT_FILE_PATTERN
+        ) ?: TemplateEngine.DEFAULT_FILE_PATTERN
+        set(value) {
+            sharedPreferences.edit {
+                putString(PREF_KEY_FILE_PATTERN, value)
+            }
+        }
+
+    override var voiceFilterEnabled: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_VOICE_FILTER_ENABLED, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_VOICE_FILTER_ENABLED, value)
+            }
+        }
+
+    override var selectedCalendarId: Long
+        get() = sharedPreferences.getLong(PREF_KEY_SELECTED_CALENDAR_ID, PrefsV2.NO_CALENDAR_FILTER)
+        set(value) {
+            sharedPreferences.edit {
+                putLong(PREF_KEY_SELECTED_CALENDAR_ID, value)
+            }
+        }
+
+    override var identifierRulesText: String
+        get() = sharedPreferences.getString(
+            PREF_KEY_IDENTIFIER_RULES,
+            IdentifierRules.DEFAULT_RULES_TEXT,
+        ) ?: IdentifierRules.DEFAULT_RULES_TEXT
+        set(value) {
+            sharedPreferences.edit {
+                putString(PREF_KEY_IDENTIFIER_RULES, value)
+            }
+        }
+
+    override var seenIdentifiers: Set<String>
+        get() = sharedPreferences.getStringSet(PREF_KEY_SEEN_IDENTIFIERS, emptySet())?.toSet().orEmpty()
+        set(value) {
+            sharedPreferences.edit {
+                putStringSet(PREF_KEY_SEEN_IDENTIFIERS, value.toSet())
+            }
+        }
+
+    override var agcLiveEnabled: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_AGC_LIVE_ENABLED, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_AGC_LIVE_ENABLED, value)
+            }
+        }
+
+    override var normalizeOnExport: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_NORMALIZE_ON_EXPORT, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_NORMALIZE_ON_EXPORT, value)
+            }
+        }
+
+    override var calendarReminderEnabled: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_CALENDAR_REMINDER_ENABLED, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_CALENDAR_REMINDER_ENABLED, value)
+            }
+        }
+
+    override var calendarReminderMinutes: Int
+        get() = sharedPreferences.getInt(PREF_KEY_CALENDAR_REMINDER_MINUTES, 5)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_CALENDAR_REMINDER_MINUTES, value.coerceIn(1, 180))
+            }
+        }
+
     override fun resetRecordingSettings() {
         sharedPreferences.edit {
             putString(
@@ -358,5 +457,16 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_IS_LOCAL_STORAGE_INFO_SHOWN = "pref_key_is_local_storage_info_shown"
         private const val PREF_KEY_CUSTOM_NAME_FORMAT = "pref_key_custom_name_format"
         private const val PREF_KEY_ALWAYS_USE_BLUETOOTH_MIC = "pref_key_always_use_bluetooth_mic"
+        private const val PREF_KEY_SAF_ROOT_TREE_URI = "pref_key_saf_root_tree_uri"
+        private const val PREF_KEY_FOLDER_PATTERN = "pref_key_folder_pattern"
+        private const val PREF_KEY_FILE_PATTERN = "pref_key_file_pattern"
+        private const val PREF_KEY_VOICE_FILTER_ENABLED = "pref_key_voice_filter_enabled"
+        private const val PREF_KEY_SELECTED_CALENDAR_ID = "pref_key_selected_calendar_id"
+        private const val PREF_KEY_IDENTIFIER_RULES = "pref_key_identifier_rules"
+        private const val PREF_KEY_SEEN_IDENTIFIERS = "pref_key_seen_identifiers"
+        private const val PREF_KEY_AGC_LIVE_ENABLED = "pref_key_agc_live_enabled"
+        private const val PREF_KEY_NORMALIZE_ON_EXPORT = "pref_key_normalize_on_export"
+        private const val PREF_KEY_CALENDAR_REMINDER_ENABLED = "pref_key_calendar_reminder_enabled"
+        private const val PREF_KEY_CALENDAR_REMINDER_MINUTES = "pref_key_calendar_reminder_minutes"
     }
 }

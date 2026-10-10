@@ -16,11 +16,11 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.dimowner.audiorecorder"
+        applicationId = "com.planrecorder"
         minSdk = 26
         targetSdk = 37
         versionCode = 951
-        versionName = "2.5.0"
+        versionName = "2.5.0-planrecorder"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -62,13 +62,13 @@ android {
     productFlavors {
         create("debugConfig") {
             dimension = "default"
-            applicationId = "com.dimowner.audiorecorder.debug"
+            applicationId = "com.planrecorder.debug"
             signingConfig = signingConfigs.getByName("dev")
         }
         create("releaseConfig") {
             dimension = "default"
             signingConfig = signingConfigs.getByName("dev")
-            applicationId = "com.dimowner.audiorecorder"
+            applicationId = "com.planrecorder"
         }
     }
     compileOptions {

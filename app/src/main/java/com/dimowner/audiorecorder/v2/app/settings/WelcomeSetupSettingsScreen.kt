@@ -274,6 +274,7 @@ fun RecordingFormat.toFormatInfo(): String {
         RecordingFormat.M4a -> stringResource(id = R.string.info_m4a)
         RecordingFormat.Wav -> stringResource(id = R.string.info_wav)
         RecordingFormat.ThreeGp -> stringResource(id = R.string.info_3gp)
+        RecordingFormat.Opus -> stringResource(id = R.string.info_opus)
     }
 }
 

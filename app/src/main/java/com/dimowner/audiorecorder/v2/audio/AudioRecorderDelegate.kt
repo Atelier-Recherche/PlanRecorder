@@ -11,6 +11,7 @@ class AudioRecorderDelegate @Inject constructor(
     private val m4aRecorder: M4aRecorderV2,
     private val threeGpRecorder: ThreeGpRecorderV2,
     private val wavRecorder: WavRecorderV2,
+    private val opusRecorder: OpusRecorderV2,
 ) {
 
     fun provideAudioRecorder(): RecorderV2 {
@@ -18,6 +19,7 @@ class AudioRecorderDelegate @Inject constructor(
             RecordingFormat.M4a -> m4aRecorder
             RecordingFormat.Wav -> wavRecorder
             RecordingFormat.ThreeGp -> threeGpRecorder
+            RecordingFormat.Opus -> opusRecorder
         }
     }
 }

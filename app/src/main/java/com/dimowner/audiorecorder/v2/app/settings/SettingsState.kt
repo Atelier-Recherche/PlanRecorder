@@ -52,6 +52,27 @@ data class SettingsState(
     val recordAuthorName: String,
     /** True when the user previously used V1 and intentionally switched to V2. */
     val isLegacyAppUser: Boolean = false,
+    // PlanRecorder
+    val safRootTreeUri: String? = null,
+    val safRootDisplayPath: String = "",
+    val folderPattern: String = "",
+    val filePattern: String = "",
+    val patternPreview: String = "",
+    val voiceFilterEnabled: Boolean = false,
+    val selectedCalendarId: Long = -1L,
+    val availableCalendars: List<CalendarOptionItem> = emptyList(),
+    val identifierRulesText: String = "UE:1+",
+    val seenIdentifiersText: String = "",
+    val agcLiveEnabled: Boolean = false,
+    val normalizeOnExport: Boolean = false,
+    val calendarReminderEnabled: Boolean = false,
+    val calendarReminderMinutes: Int = 5,
+) : Parcelable
+
+@Parcelize
+data class CalendarOptionItem(
+    val id: Long,
+    val label: String,
 ) : Parcelable
 
 @Parcelize

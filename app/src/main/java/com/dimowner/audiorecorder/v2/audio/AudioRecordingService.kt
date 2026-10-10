@@ -56,7 +56,9 @@ import com.dimowner.audiorecorder.v2.app.HomeActivity
 import com.dimowner.audiorecorder.v2.app.getNewRecordName
 import com.dimowner.audiorecorder.v2.data.FileDataSource
 import com.dimowner.audiorecorder.v2.data.PrefsV2
+import com.dimowner.audiorecorder.v2.data.RecordingSessionContext
 import com.dimowner.audiorecorder.v2.data.RecordsDataSource
+import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
 import com.dimowner.audiorecorder.v2.data.model.AudioSource
 import com.dimowner.audiorecorder.v2.data.model.Record
 import com.dimowner.audiorecorder.v2.data.model.RecordingFormat
@@ -144,7 +146,18 @@ class AudioRecordingService : Service() {
     lateinit var prefs: PrefsV2
 
     @Inject
+    lateinit var calendarRepository: CalendarRepository
+
+    @Inject
+    lateinit var recordingSessionContext: RecordingSessionContext
+
+    @Inject
+    lateinit var recordingMarkersStore: com.dimowner.audiorecorder.v2.data.markers.RecordingMarkersStore
+
+    @Inject
     lateinit var analyticsTracker: AnalyticsTracker
+
+    private var activeAgc: android.media.audiofx.AutomaticGainControl? = null
 
     /**
      * The playback player, the same singleton instance [AudioPlaybackService] drives, so that
@@ -275,6 +288,12 @@ class AudioRecordingService : Service() {
                     }
                 }
                 serviceScope.launch {
+                    val now = System.currentTimeMillis()
+                    val calendarId = prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
+                    recordingSessionContext.capture(
+                        calendarRepository.getActiveEvent(now, calendarId),
+                        now,
+                    )
                     val recordName = prefs.settingNamingFormat.getNewRecordName(prefs)
                     resetRecordedRecordPartCounter()
                     prefs.recordedRecordBaseName = recordName
@@ -289,6 +308,7 @@ class AudioRecordingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        releaseAgc()
         releaseMediaProjection()
         subscriptionJob?.cancel()
         serviceJob.cancel()
@@ -340,6 +360,8 @@ class AudioRecordingService : Service() {
                         totalRecordingSampleCount = 0
                         lastAvailableSpaceCheckTime = 0L
                         recordingFullDataBuffer.reset()
+                        recordingMarkersStore.clear()
+                        maybeEnableAgc()
                         _recordingState.value = _recordingState.value.copy(
                             recordingState = RecordingState.STARTED,
                             amplitudes = intArrayOf(),
@@ -366,6 +388,7 @@ class AudioRecordingService : Service() {
                         updateNotification()
                     }
                     is RecorderEvent.OnStopRecording -> {
+                        releaseAgc()
                         handleRecordingStopped()
                     }
                     is RecorderEvent.OnMaxDurationReached -> {
@@ -1148,6 +1171,7 @@ class AudioRecordingService : Service() {
     ): Long {
         return when (recordingFormat) {
             RecordingFormat.M4a,
+            RecordingFormat.Opus,
             RecordingFormat.ThreeGp -> {
                 // For compressed formats, use bitrate
                 if (bitrate > 0) {
@@ -1170,6 +1194,17 @@ class AudioRecordingService : Service() {
 
     fun resetRecordedRecordPartCounter() {
         prefs.recordedRecordPartCounter = 0
+    }
+
+    private fun maybeEnableAgc() {
+        releaseAgc()
+        if (!prefs.agcLiveEnabled) return
+        activeAgc = AgcHelper.enable(audioRecorder.audioSessionId())
+    }
+
+    private fun releaseAgc() {
+        AgcHelper.release(activeAgc)
+        activeAgc = null
     }
 
     private fun emitEvent(event: AudioRecordingServiceEvent) {

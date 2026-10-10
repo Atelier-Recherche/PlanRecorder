@@ -157,6 +157,8 @@ class AacCodecRecorderV2 @Inject constructor(
 
     override val isRecording: Boolean
         get() = _isRecording
+
+    override fun audioSessionId(): Int = audioRecord?.audioSessionId ?: -1
     override val isPaused: Boolean
         get() = _isPaused
 

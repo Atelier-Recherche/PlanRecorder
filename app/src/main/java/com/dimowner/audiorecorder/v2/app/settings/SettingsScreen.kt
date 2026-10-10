@@ -16,11 +16,15 @@
 
 package com.dimowner.audiorecorder.v2.app.settings
 
+import android.content.Intent
 import android.os.Build
 import android.text.format.Formatter
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,10 +41,16 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -68,6 +78,7 @@ import com.dimowner.audiorecorder.v2.app.ScrollableTitleBar
 import com.dimowner.audiorecorder.v2.app.components.AudioSourceSelector
 import com.dimowner.audiorecorder.v2.app.components.DISABLED_ALPHA
 import com.dimowner.audiorecorder.v2.app.components.MAX_CONTENT_WIDTH_NARROW
+import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.data.model.BitRate
 import com.dimowner.audiorecorder.v2.data.model.ChannelCount
 import com.dimowner.audiorecorder.v2.data.model.NameFormat
@@ -188,6 +199,7 @@ internal fun SettingsScreen(
                     {
                         onAction(SettingsScreenAction.SetShowRenamingDialog(it))
                     })
+                PlanRecorderSettingsSection(uiState = uiState, onAction = onAction)
                 DropDownSetting(
                     items = uiState.nameFormats,
                     selectedItem = uiState.selectedNameFormat,
@@ -466,6 +478,336 @@ fun formatDurationDisplay(hours: Int, minutes: Int): String {
         else -> {
             stringResource(R.string.duration_minutes, 0)
         }
+    }
+}
+
+private data class PatternTag(val tag: String, val descriptionRes: Int)
+
+private val PLANRECORDER_TAGS = listOf(
+    PatternTag("[calendar]", R.string.tag_calendar),
+    PatternTag("[title]", R.string.tag_title),
+    PatternTag("[title_rest]", R.string.tag_title_rest),
+    PatternTag("[id]", R.string.tag_id),
+    PatternTag("[ue]", R.string.tag_ue),
+    PatternTag("[NN]", R.string.tag_NN),
+    PatternTag("[nn]", R.string.tag_nn),
+    PatternTag("[dd]", R.string.tag_dd),
+    PatternTag("[mm]", R.string.tag_mm),
+    PatternTag("[yy]", R.string.tag_yy),
+    PatternTag("[yyyy]", R.string.tag_yyyy),
+    PatternTag("[HH]", R.string.tag_HH),
+    PatternTag("[MM]", R.string.tag_MM),
+    PatternTag("[SS]", R.string.tag_SS),
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlanRecorderSettingsSection(
+    uiState: SettingsState,
+    onAction: (SettingsScreenAction) -> Unit,
+) {
+    val context = LocalContext.current
+    val patternTarget = remember { mutableStateOf(PatternField.Folder) }
+    val calendarMenuExpanded = remember { mutableStateOf(false) }
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) onAction(SettingsScreenAction.RefreshCalendars)
+    }
+    val safLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Some providers may not support persistable permissions.
+            }
+            onAction(SettingsScreenAction.SetSafRootTreeUri(uri.toString()))
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        calendarPermissionLauncher.launch(android.Manifest.permission.READ_CALENDAR)
+    }
+
+    Spacer(modifier = Modifier.size(8.dp))
+    val showPlanInfo = remember { mutableStateOf(false) }
+    val showVoiceFilterInfo = remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.planrecorder_section),
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            painter = painterResource(id = R.drawable.ic_info),
+            contentDescription = stringResource(R.string.info),
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .size(22.dp)
+                .clickable { showPlanInfo.value = true },
+        )
+    }
+    SettingsInfoDialog(
+        openDialog = showPlanInfo,
+        message = htmlStringResource(R.string.info_planrecorder_html),
+    )
+    SettingsItem(
+        label = if (uiState.safRootTreeUri.isNullOrBlank()) {
+            stringResource(R.string.saf_root_not_set)
+        } else {
+            stringResource(
+                R.string.saf_root_set,
+                uiState.safRootDisplayPath.ifBlank { uiState.safRootTreeUri.orEmpty() },
+            )
+        },
+        iconRes = R.drawable.ic_folder_open,
+        onClick = { safLauncher.launch(null) },
+    )
+
+    val selectedCalendarLabel = when (uiState.selectedCalendarId) {
+        PrefsV2.NO_CALENDAR_FILTER -> stringResource(R.string.calendar_all)
+        else -> uiState.availableCalendars
+            .firstOrNull { it.id == uiState.selectedCalendarId }
+            ?.label
+            ?: stringResource(R.string.calendar_all)
+    }
+    ExposedDropdownMenuBox(
+        expanded = calendarMenuExpanded.value,
+        onExpandedChange = { calendarMenuExpanded.value = it },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        OutlinedTextField(
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            readOnly = true,
+            value = selectedCalendarLabel,
+            onValueChange = {},
+            label = { Text(stringResource(R.string.calendar_source)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = calendarMenuExpanded.value) },
+        )
+        ExposedDropdownMenu(
+            expanded = calendarMenuExpanded.value,
+            onDismissRequest = { calendarMenuExpanded.value = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.calendar_all)) },
+                onClick = {
+                    onAction(SettingsScreenAction.SetSelectedCalendarId(PrefsV2.NO_CALENDAR_FILTER))
+                    calendarMenuExpanded.value = false
+                },
+            )
+            uiState.availableCalendars.forEach { calendar ->
+                DropdownMenuItem(
+                    text = { Text(calendar.label) },
+                    onClick = {
+                        onAction(SettingsScreenAction.SetSelectedCalendarId(calendar.id))
+                        calendarMenuExpanded.value = false
+                    },
+                )
+            }
+        }
+    }
+    SettingsItem(
+        label = stringResource(R.string.calendar_refresh),
+        iconRes = R.drawable.ic_folder_open,
+        onClick = {
+            calendarPermissionLauncher.launch(android.Manifest.permission.READ_CALENDAR)
+            onAction(SettingsScreenAction.RefreshCalendars)
+        },
+    )
+
+    OutlinedTextField(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        value = uiState.folderPattern,
+        onValueChange = { onAction(SettingsScreenAction.SetFolderPattern(it)) },
+        label = { Text(stringResource(R.string.folder_pattern)) },
+        singleLine = true,
+    )
+    OutlinedTextField(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        value = uiState.filePattern,
+        onValueChange = { onAction(SettingsScreenAction.SetFilePattern(it)) },
+        label = { Text(stringResource(R.string.file_pattern)) },
+        singleLine = true,
+    )
+
+    Text(
+        text = stringResource(R.string.pattern_tags_title),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .horizontalScroll(rememberScrollState()),
+    ) {
+        AssistChip(
+            onClick = { patternTarget.value = PatternField.Folder },
+            label = { Text(stringResource(R.string.pattern_target_folder)) },
+            modifier = Modifier.padding(end = 8.dp),
+        )
+        AssistChip(
+            onClick = { patternTarget.value = PatternField.File },
+            label = { Text(stringResource(R.string.pattern_target_file)) },
+        )
+    }
+    Text(
+        text = if (patternTarget.value == PatternField.Folder) {
+            stringResource(R.string.pattern_target_folder)
+        } else {
+            stringResource(R.string.pattern_target_file)
+        },
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
+    Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+        PLANRECORDER_TAGS.chunked(3).forEach { rowTags ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                rowTags.forEach { item ->
+                    AssistChip(
+                        onClick = {
+                            onAction(
+                                SettingsScreenAction.InsertPatternTag(
+                                    patternTarget.value,
+                                    item.tag,
+                                )
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "${item.tag}\n${stringResource(item.descriptionRes)}",
+                                fontSize = 11.sp,
+                                lineHeight = 13.sp,
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(4.dp),
+                    )
+                }
+                repeat(3 - rowTags.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+    Text(
+        text = stringResource(R.string.pattern_preview, uiState.patternPreview),
+        fontSize = 13.sp,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+    Text(
+        text = stringResource(R.string.pattern_no_event_hint),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SettingsItemCheckBox(
+            uiState.voiceFilterEnabled,
+            stringResource(R.string.voice_filter),
+            R.drawable.ic_audiotrack,
+            {
+                onAction(SettingsScreenAction.SetVoiceFilterEnabled(it))
+            },
+        )
+    }
+    Text(
+        text = stringResource(R.string.voice_filter_summary),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .clickable { showVoiceFilterInfo.value = true },
+    )
+    SettingsInfoDialog(
+        openDialog = showVoiceFilterInfo,
+        message = htmlStringResource(R.string.info_voice_filter_html),
+    )
+    OutlinedTextField(
+        value = uiState.identifierRulesText,
+        onValueChange = { onAction(SettingsScreenAction.SetIdentifierRulesText(it)) },
+        label = { Text(stringResource(R.string.identifier_rules)) },
+        supportingText = { Text(stringResource(R.string.identifier_rules_help)) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        minLines = 2,
+    )
+    if (uiState.seenIdentifiersText.isNotBlank()) {
+        Text(
+            text = stringResource(R.string.seen_identifiers, uiState.seenIdentifiersText),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        )
+    }
+    SettingsItemCheckBox(
+        uiState.agcLiveEnabled,
+        stringResource(R.string.agc_live),
+        R.drawable.ic_audiotrack,
+        { onAction(SettingsScreenAction.SetAgcLiveEnabled(it)) },
+    )
+    Text(
+        text = stringResource(R.string.agc_live_summary),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
+    SettingsItemCheckBox(
+        uiState.normalizeOnExport,
+        stringResource(R.string.normalize_on_export),
+        R.drawable.ic_audiotrack,
+        { onAction(SettingsScreenAction.SetNormalizeOnExport(it)) },
+    )
+    Text(
+        text = stringResource(R.string.normalize_on_export_summary),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
+    SettingsItemCheckBox(
+        uiState.calendarReminderEnabled,
+        stringResource(R.string.calendar_reminder),
+        R.drawable.ic_access_time,
+        { onAction(SettingsScreenAction.SetCalendarReminderEnabled(it)) },
+    )
+    if (uiState.calendarReminderEnabled) {
+        OutlinedTextField(
+            value = uiState.calendarReminderMinutes.toString(),
+            onValueChange = {
+                val mins = it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: return@OutlinedTextField
+                onAction(SettingsScreenAction.SetCalendarReminderMinutes(mins))
+            },
+            label = { Text(stringResource(R.string.calendar_reminder_minutes)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            singleLine = true,
+        )
     }
 }
 

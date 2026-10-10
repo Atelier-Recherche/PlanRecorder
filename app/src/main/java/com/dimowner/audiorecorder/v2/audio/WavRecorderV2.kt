@@ -54,6 +54,8 @@ class WavRecorderV2 @Inject constructor(
     override val isPaused: Boolean
         get() = _isPaused
 
+    override fun audioSessionId(): Int = audioRecord?.audioSessionId ?: -1
+
     @Volatile private var durationMills: Long = 0
 
     /**
