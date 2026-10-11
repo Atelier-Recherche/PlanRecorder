@@ -53,16 +53,6 @@ Defaults : dossier `[calendar]/[id] [title_rest]` · fichier `[NN]-T[HH][MM][SS]
 adb install -r app/build/outputs/apk/debugConfig/debug/app-debugConfig-debug.apk
 ```
 
-Release locale (artefacts dans `release/`, ignoré par git) :
-
-```powershell
-.\scripts\release.ps1
-# incrémenter versionName (patch) + versionCode dans build.gradle.kts :
-.\scripts\release.ps1 -Bump
-# version explicite + tag GitHub :
-.\scripts\release.ps1 -Version 1.1.0 -CreateGithubRelease
-```
-
 ## Première utilisation
 
 1. **Settings → PlanRecorder**

@@ -19,8 +19,8 @@ android {
         applicationId = "com.planrecorder"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1001
-        versionName = "1.0.1"
+        versionCode = 1002
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
