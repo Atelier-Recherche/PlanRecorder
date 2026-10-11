@@ -7,29 +7,50 @@ import java.util.Locale
 import java.util.regex.Pattern
 
 /**
- * User-defined course identifiers, e.g. "UE with digits" or "MATH + 3 digits".
+ * User-defined session identifiers.
  *
- * Text format (one rule per line): `PREFIX:N` or `PREFIX:N+`
- * - `UE:1+` → UE + at least 1 digit (default)
- * - `MATH:3` → MATH + exactly 3 digits
+ * One rule per line (hash form, preferred):
+ * - `UE###` → prefix "UE" + exactly 3 digits (UE323)
+ * - `MATH##` → prefix "MATH" + exactly 2 digits
+ * - `UE#+` → prefix "UE" + at least 1 digit (UE3, UE323, UE1234…)
+ * - `UE##+` → at least 2 digits
+ *
+ * Legacy colon form still accepted: `UE:3`, `UE:1+`.
  */
 object IdentifierRules {
 
-    const val DEFAULT_RULES_TEXT = "UE:1+"
+    const val DEFAULT_RULES_TEXT = "UE#+"
+
+    private val HASH_LINE = Regex("""^(.+?)(#+)(\+)?$""")
+    private val SAMPLE_TITLES = listOf(
+        "UE323 - Technocraties III",
+        "UE12 Intro",
+        "MATH101 Algebra",
+        "Session sans code",
+    )
 
     data class Rule(
         val prefix: String,
         val minDigits: Int,
         val maxDigits: Int,
     ) {
-        fun toLine(): String =
-            if (minDigits == maxDigits) "$prefix:$minDigits" else "$prefix:$minDigits+"
+        fun toLine(): String {
+            val hashes = "#".repeat(minDigits.coerceAtLeast(1))
+            return if (minDigits == maxDigits) "$prefix$hashes" else "$prefix$hashes+"
+        }
+
+        fun describe(): String =
+            if (minDigits == maxDigits) {
+                "$prefix + exactement $minDigits chiffre(s)"
+            } else {
+                "$prefix + au moins $minDigits chiffre(s)"
+            }
     }
 
     data class IdParts(val id: String, val titleRest: String)
 
     fun parseRules(text: String?): List<Rule> {
-        val lines = text.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+        val lines = text.orEmpty().lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("//") }
         if (lines.isEmpty()) return parseRules(DEFAULT_RULES_TEXT)
         val parsed = lines.mapNotNull { parseLine(it) }
         return parsed.ifEmpty { parseRules(DEFAULT_RULES_TEXT) }
@@ -37,6 +58,21 @@ object IdentifierRules {
 
     fun parseLine(line: String): Rule? {
         val trimmed = line.trim()
+        if (trimmed.isEmpty()) return null
+
+        HASH_LINE.matchEntire(trimmed)?.let { m ->
+            val prefix = m.groupValues[1]
+            if (prefix.isEmpty() || prefix.contains(':')) return@let null
+            val hashCount = m.groupValues[2].length
+            val flexible = m.groupValues[3].isNotEmpty()
+            return if (flexible) {
+                Rule(prefix = prefix, minDigits = hashCount, maxDigits = 12)
+            } else {
+                Rule(prefix = prefix, minDigits = hashCount, maxDigits = hashCount)
+            }
+        }
+
+        // Legacy: PREFIX:N or PREFIX:N+
         val colon = trimmed.lastIndexOf(':')
         if (colon <= 0) return null
         val prefix = trimmed.substring(0, colon).trim()
@@ -59,16 +95,11 @@ object IdentifierRules {
     fun formatRules(rules: List<Rule>): String =
         rules.joinToString("\n") { it.toLine() }
 
-    /**
-     * Extracts the first matching identifier at the start of [title]
-     * (optional separator `-` / `:` / en-dash afterwards).
-     */
     fun parseId(title: String?, rulesText: String?): IdParts {
         if (title.isNullOrBlank()) return IdParts("", "")
         val trimmed = title.trim()
         for (rule in parseRules(rulesText)) {
-            val pattern = buildTitlePattern(rule)
-            val matcher = pattern.matcher(trimmed)
+            val matcher = buildTitlePattern(rule).matcher(trimmed)
             if (matcher.matches()) {
                 val id = matcher.group(1)?.uppercase(Locale.ROOT).orEmpty()
                 val rest = matcher.group(2)?.trim().orEmpty()
@@ -78,12 +109,10 @@ object IdentifierRules {
         return IdParts(id = "", titleRest = trimmed)
     }
 
-    /** Finds any identifier occurrence inside [text] (folder names, etc.). */
     fun extractId(text: String?, rulesText: String?): String? {
         if (text.isNullOrBlank()) return null
         for (rule in parseRules(rulesText)) {
-            val pattern = buildFindPattern(rule)
-            val matcher = pattern.matcher(text)
+            val matcher = buildFindPattern(rule).matcher(text)
             if (matcher.find()) {
                 return matcher.group(1)?.uppercase(Locale.ROOT)
             }
@@ -100,6 +129,25 @@ object IdentifierRules {
                     { it.lowercase(Locale.ROOT) },
                 )
             )
+    }
+
+    /**
+     * Human-readable preview lines for settings, e.g.
+     * `UE323 - Technocraties III → [id]=UE323 · [title_rest]=Technocraties III`
+     */
+    fun buildPreview(rulesText: String?, sampleTitles: List<String> = SAMPLE_TITLES): String {
+        val rules = parseRules(rulesText)
+        val header = rules.joinToString(" · ") { it.toLine() + " (" + it.describe() + ")" }
+        val lines = sampleTitles.map { title ->
+            val parts = parseId(title, rulesText)
+            if (parts.id.isBlank()) {
+                "• $title → aucun id"
+            } else {
+                "• $title → [id]=${parts.id}" +
+                    if (parts.titleRest.isNotBlank()) " · [title_rest]=${parts.titleRest}" else ""
+            }
+        }
+        return (listOf(header) + lines).joinToString("\n")
     }
 
     private fun buildTitlePattern(rule: Rule): Pattern {

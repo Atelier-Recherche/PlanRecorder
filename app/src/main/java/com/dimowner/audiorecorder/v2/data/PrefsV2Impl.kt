@@ -364,13 +364,22 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         }
 
     override var identifierRulesText: String
-        get() = sharedPreferences.getString(
-            PREF_KEY_IDENTIFIER_RULES,
-            IdentifierRules.DEFAULT_RULES_TEXT,
-        ) ?: IdentifierRules.DEFAULT_RULES_TEXT
+        get() {
+            val raw = sharedPreferences.getString(
+                PREF_KEY_IDENTIFIER_RULES,
+                IdentifierRules.DEFAULT_RULES_TEXT,
+            ) ?: IdentifierRules.DEFAULT_RULES_TEXT
+            // Normalize legacy "UE:1+" → "UE#+"
+            val normalized = IdentifierRules.formatRules(IdentifierRules.parseRules(raw))
+            if (normalized != raw) {
+                sharedPreferences.edit { putString(PREF_KEY_IDENTIFIER_RULES, normalized) }
+            }
+            return normalized
+        }
         set(value) {
+            val normalized = IdentifierRules.formatRules(IdentifierRules.parseRules(value))
             sharedPreferences.edit {
-                putString(PREF_KEY_IDENTIFIER_RULES, value)
+                putString(PREF_KEY_IDENTIFIER_RULES, normalized)
             }
         }
 

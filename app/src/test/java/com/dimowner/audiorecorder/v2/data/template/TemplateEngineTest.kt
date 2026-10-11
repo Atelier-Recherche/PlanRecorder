@@ -33,10 +33,10 @@ class TemplateEngineTest {
     }
 
     @Test
-    fun `example seminar path is fully automated`() {
+    fun `example session path is fully automated`() {
         val event = CalendarEvent(
             title = "UE323 - Technocraties III",
-            calendarName = "Seminaires",
+            calendarName = "Sessions",
             description = null,
             startTimeMillis = 0L,
             endTimeMillis = 1L,
@@ -54,7 +54,7 @@ class TemplateEngineTest {
             timeZone = tz,
             locale = locale,
         )
-        assertEquals("Seminaires/UE323 Technocraties III", resolved.relativeDir)
+        assertEquals("Sessions/UE323 Technocraties III", resolved.relativeDir)
         assertEquals("07-T163555-140426-UE323", resolved.fileBaseName)
     }
 

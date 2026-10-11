@@ -227,7 +227,7 @@
 	<string name="info_format_m4a_html"><![CDATA[<b>M4a</b> : encodé avec le codec audio AAC, possède une bonne qualité pour une petite taille. <b>(recommandé)</b>]]></string>
 	<string name="info_format_wav_html"><![CDATA[<b>Wav</b> : format audio non compressé. Prend plus de place que les autres formats. Il est nécessaire pour des cas spécifiques.]]></string>
 	<string name="info_format_3gp_html"><![CDATA[<b>3gp</b> : format multimédia développé pour les communications téléphoniques. Utilisez ceci si vous avez besoin de sauver de l\'espace.]]></string>
-	<string name="info_format_opus_html"><![CDATA[<b>Opus</b> : codec moderne idéal pour les notes de cours : fichiers petits, bonne intelligibilité. Nécessite Android 10+. Préférez 16–32 kbps pour la parole.]]></string>
+	<string name="info_format_opus_html"><![CDATA[<b>Opus</b> : codec moderne idéal pour les notes de session : fichiers petits, bonne intelligibilité. Nécessite Android 10+. Préférez 16–32 kbps pour la parole.]]></string>
 
 	<string name="info_frequency">Le <b>taux d\'échantillonnage</b> est le nombre d\'échantillons audio enregistrés par seconde.
 		\n<b>48 kHz</b> : utilisé par les DVD.
@@ -269,15 +269,15 @@
 <b>Par défaut :</b> Le réglage recommandé par le fabricant. Il se comporte généralement comme l\'option <b>Microphone</b>, mais permet à l\'appareil d\'appliquer son propre réglage matériel optimisé.
 <br/><br/><b>Microphone :</b> Le réglage standard du microphone. Idéal pour un enregistrement général. Il équilibre automatiquement le volume de la voix tout en capturant l\'atmosphère naturelle de l\'environnement.
 <br/><br/><b>Communication vocale :</b> Spécialement conçu pour la clarté de la voix humaine. Idéal pour le Bluetooth car il active la suppression du bruit et de l\'écho.
-<br/><br/><b>Reconnaissance vocale :</b> Optimisé pour la parole. Le système peut appliquer un traitement orienté voix (utile pour les cours). Utilisé par le préréglage <b>Filtrer pour les voix</b>.
+<br/><br/><b>Reconnaissance vocale :</b> Optimisé pour la parole. Le système peut appliquer un traitement orienté voix (utile en session). Utilisé par le préréglage <b>Filtrer pour les voix</b>.
 <br/><br/><b>Non traité :</b> Capture l\'audio brut sans aucun filtre ni réglage système. Sans suppression du bruit de fond ni nivellement du volume. Idéal pour une utilisation haute-fidélité ou professionnelle.
 <br/><br/><b>Audio du système :</b> Enregistre ce que diffusent les autres applications au lieu du microphone. Les applications peuvent refuser d\'être enregistrées, le contenu protégé et les appels restent donc silencieux.
 ]]></string>
 	<string name="info_3gp"><b>3gp</b> : format multimédia développé pour les communications téléphoniques. Utilisez ceci si vous avez besoin de sauver de l\'espace.</string>
 	<string name="info_m4a"><b>M4a</b> : encodé avec le codec audio AAC, possède une bonne qualité pour une petite taille. <b>(recommandé)</b></string>
 	<string name="info_wav"><b>Wav</b> : format audio non compressé. Prend plus de place que les autres formats. Il est nécessaire pour des cas spécifiques.</string>
-	<string name="info_opus"><b>Opus</b> : codec moderne idéal pour les notes de cours (fichiers légers). Nécessite Android 10+.</string>
-	<string name="info_voice_filter_html"><![CDATA[<b>Filtrer pour les voix</b> active un préréglage adapté aux cours : <b>Opus</b> à 32 kbps, mono, et source <b>Reconnaissance vocale</b>. Désactivez-le pour retrouver vos réglages précédents.]]></string>
+	<string name="info_opus"><b>Opus</b> : codec moderne idéal pour les notes de session (fichiers légers). Nécessite Android 10+.</string>
+	<string name="info_voice_filter_html"><![CDATA[<b>Filtrer pour les voix</b> active un préréglage adapté aux sessions : <b>Opus</b> à 32 kbps, mono, et source <b>Reconnaissance vocale</b>. Désactivez-le pour retrouver vos réglages précédents.]]></string>
 	<string name="info_planrecorder_html"><![CDATA[<b>PlanRecorder</b> nomme et classe les enregistrements selon l\'événement de calendrier en cours, puis les exporte dans votre dossier SAF via des modèles configurables. Sans événement, il propose les dossiers UE existants ou utilise <b>Non classé</b>.]]></string>
 	<string name="planrecorder_section">PlanRecorder</string>
 	<string name="saf_root_folder">Dossier d\'export (SAF)</string>
@@ -295,32 +295,34 @@
 	<string name="destination_folder">Dossier de destination</string>
 	<string name="voice_filter">Filtrer pour les voix</string>
 	<string name="voice_filter_summary">Opus + débit parole + source reconnaissance vocale</string>
-	<string name="tag_id">Identifiant de cours (ex. UE323)</string>
+	<string name="tag_id">Identifiant de session (ex. UE323)</string>
 	<string name="identifier_rules">Règles d\'identifiant</string>
-	<string name="identifier_rules_help">Une par ligne : PREFIXE:chiffres — ex. UE:1+ ou MATH:3</string>
+	<string name="identifier_rules_help">Une par ligne. Chaque # = un chiffre. Ex. : UE### (exactement 3 chiffres), UE#+ (1 ou plus), MATH###</string>
+	<string name="identifier_rules_preview_title">Aperçu</string>
+	<string name="course_widget_open_app">Ouvrir PlanRecorder</string>
 	<string name="seen_identifiers">IDs déjà vus : %1$s</string>
 	<string name="agc_live">AGC live (volume auto)</string>
 	<string name="agc_live_summary">Utilise le contrôle automatique de gain Android si disponible.</string>
 	<string name="normalize_on_export">Normaliser le volume à l\'export</string>
 	<string name="normalize_on_export_summary">Normalise le pic puis réencode dans le même format (Opus/M4A/WAV). En cas d\'échec, garde le fichier d\'origine.</string>
 	<string name="calendar_event_window_minutes">Fenêtre événement (minutes avant/après)</string>
-	<string name="calendar_event_window_help">Le cours reste « actif » autant de minutes avant le début et après la fin (ex. 15).</string>
+	<string name="calendar_event_window_help">La session reste « active » autant de minutes avant le début et après la fin (ex. 15).</string>
 	<string name="course_widget_refresh">Actualiser le calendrier</string>
 	<string name="course_widget_stop">Arrêter et ouvrir l\'app</string>
 	<string name="course_widget_idle">Appuyer pour enregistrer</string>
 	<string name="course_widget_recording">Enregistrement %1$s</string>
-	<string name="calendar_reminder">Rappel avant le cours</string>
+	<string name="calendar_reminder">Rappel avant la session</string>
 	<string name="calendar_reminder_minutes">Minutes avant le début</string>
-	<string name="calendar_reminder_channel">Rappels de cours</string>
-	<string name="calendar_reminder_notif_title">Enregistrer ce cours ?</string>
+	<string name="calendar_reminder_channel">Rappels de session</string>
+	<string name="calendar_reminder_notif_title">Enregistrer cette session ?</string>
 	<string name="calendar_reminder_notif_text">%1$s commence bientôt</string>
-	<string name="calendar_reminder_default_title">Cours à venir</string>
+	<string name="calendar_reminder_default_title">Session à venir</string>
 	<string name="calendar_reminder_action_record">Enregistrer</string>
-	<string name="course_widget_description">Démarrer l\'enregistrement pour le cours en cours</string>
-	<string name="course_widget_record">Enregistrer le cours en cours</string>
-	<string name="course_widget_no_event">Aucun cours en ce moment</string>
+	<string name="course_widget_description">Démarrer l\'enregistrement pour la session en cours</string>
+	<string name="course_widget_record">Enregistrer la session en cours</string>
+	<string name="course_widget_no_event">Aucune session en ce moment</string>
 	<string name="add_marker">Ajouter un marqueur</string>
-	<string name="marker_note_hint">Note (ex. début du cours)</string>
+	<string name="marker_note_hint">Note (ex. début de session)</string>
 	<string name="marker_added">Marqueur à %1$s</string>
 	<string name="msg_exported_to_saf">Exporté vers %1$s</string>
 	<string name="error_saf_export">Impossible d\'exporterer vers le dossier sélectionné</string>

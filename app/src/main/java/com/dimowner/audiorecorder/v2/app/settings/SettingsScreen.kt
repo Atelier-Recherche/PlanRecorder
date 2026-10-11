@@ -757,6 +757,21 @@ private fun PlanRecorderSettingsSection(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         minLines = 2,
     )
+    Text(
+        text = stringResource(R.string.identifier_rules_preview_title),
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
+    Text(
+        text = uiState.identifierRulesPreview.ifBlank {
+            stringResource(R.string.identifier_rules_help)
+        },
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
     if (uiState.seenIdentifiersText.isNotBlank()) {
         Text(
             text = stringResource(R.string.seen_identifiers, uiState.seenIdentifiersText),

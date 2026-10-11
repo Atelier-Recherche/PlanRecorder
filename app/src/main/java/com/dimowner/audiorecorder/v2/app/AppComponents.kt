@@ -803,7 +803,7 @@ fun UpdateNameAndDescriptionDialogPreview() {
         onAcceptClick = { _, _, _, _ -> },
         onDismissClick = {},
         showDontAskAgain = true,
-        destinationFolder = "Seminaires/UE323 Technocraties III",
+        destinationFolder = "Sessions/UE323 Technocraties III",
         showDestinationFolder = true,
     )
 }

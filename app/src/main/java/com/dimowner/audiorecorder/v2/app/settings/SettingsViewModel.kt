@@ -176,6 +176,7 @@ internal class SettingsViewModel @Inject constructor(
             selectedCalendarId = prefs.selectedCalendarId,
             availableCalendars = emptyList(),
             identifierRulesText = prefs.identifierRulesText,
+            identifierRulesPreview = IdentifierRules.buildPreview(prefs.identifierRulesText),
             seenIdentifiersText = prefs.seenIdentifiers.sorted().joinToString(", "),
             agcLiveEnabled = prefs.agcLiveEnabled,
             normalizeOnExport = prefs.normalizeOnExport,
@@ -559,12 +560,24 @@ internal class SettingsViewModel @Inject constructor(
     }
 
     fun setIdentifierRulesText(text: String) {
-        val normalized = IdentifierRules.formatRules(IdentifierRules.parseRules(text))
-        prefs.identifierRulesText = normalized
-        _state.value = _state.value.copy(
-            identifierRulesText = normalized,
-            patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
-        )
+        val lines = text.lines().map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("//") }
+        val allValid = lines.isNotEmpty() && lines.all { IdentifierRules.parseLine(it) != null }
+        // Keep draft text while typing; persist only when every non-empty line is a valid rule.
+        if (allValid) {
+            prefs.identifierRulesText = text
+            val normalized = prefs.identifierRulesText
+            _state.value = _state.value.copy(
+                identifierRulesText = normalized,
+                identifierRulesPreview = IdentifierRules.buildPreview(normalized),
+                patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
+            )
+        } else {
+            _state.value = _state.value.copy(
+                identifierRulesText = text,
+                identifierRulesPreview = IdentifierRules.buildPreview(text),
+            )
+        }
     }
 
     fun setAgcLiveEnabled(enabled: Boolean) {

@@ -19,13 +19,13 @@ Fork d’[AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) pour 
 5. **Opus** + préréglage **Filtrer pour les voix**
 6. **Identifiants personnalisés** (`UE:1+`, `MATH:3`…) + liste des IDs déjà vus
 7. **AGC live** et **normalisation peak → WAV** à l’export (options)
-8. **Widget « cours en cours »** et **rappel X min** avant le créneau
+8. **Widget « session en cours »** et **rappel X min** avant le créneau
 9. **Marqueurs** pendant l’enregistrement → fichier Markdown style Obsidian  
-   `[[fichier.opus#t=508|08:28]] debut du cours`
+   `[[fichier.opus#t=508|08:28]] debut de session`
 
 ## Matching intelligent des dossiers
 
-Si le pattern produit `UE581 seminaire croquette` mais qu’existe déjà `UE581 seminaire croquette et tech`, PlanRecorder **réutilise le dossier existant** (et l’inverse), tant que l’identifiant correspond.
+Si le pattern produit `UE581 session croquette` mais qu’existe déjà `UE581 session croquette et tech`, PlanRecorder **réutilise le dossier existant** (et l’inverse), tant que l’identifiant correspond.
 
 ## Sans événement / ambiguïté
 
@@ -75,7 +75,7 @@ Release locale (artefacts dans `release/`, ignoré par git) :
 
 ```bash
 # 1. Créer le dépôt (compte GitHub connecté via gh)
-gh repo create PlanRecorder --public --source=. --remote=origin --description "Calendar-aware audio notes for lectures (fork of AudioRecorder)"
+gh repo create PlanRecorder --public --source=. --remote=origin --description "Calendar-aware audio notes for sessions (fork of AudioRecorder)"
 
 # 2. Pousser la branche
 git push -u origin HEAD

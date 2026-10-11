@@ -1,10 +1,12 @@
 # Art attribution
 
-## App icon — mic-signal
+Widget and launcher icons based on [Lucide Icons](https://lucide.dev) (ISC).
 
-Source: [Lucide Icons — mic-signal](https://lucide.dev/icons/mic-signal)
+| Asset | Source |
+|-------|--------|
+| App / widget logo | [mic-signal](https://lucide.dev/icons/mic-signal) |
+| Record | [mic](https://lucide.dev/icons/mic) |
+| Stop | [square](https://lucide.dev/icons/square) |
+| Refresh | [refresh-cw](https://lucide.dev/icons/refresh-cw) |
 
-License: ISC  
-Copyright © Lucide Contributors
-
-Thank you to the Lucide project for the excellent open icon set.
+Thank you to the Lucide project.

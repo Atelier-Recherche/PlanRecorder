@@ -2,7 +2,7 @@
 
 [README en français](README.md)
 
-Fork of [AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) for **calendar-aware lecture notes** (DAVx⁵ / Android calendar).
+Fork of [AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) for **calendar-aware session notes** (DAVx⁵ / Android calendar).
 
 | | |
 |---|---|
@@ -19,13 +19,13 @@ Fork of [AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) for **
 5. **Opus** + **Filter for voices** preset
 6. **Custom identifiers** (`UE:1+`, `MATH:3`…) + remembered ID list
 7. Optional **live AGC** and **peak normalize → WAV** on export
-8. **Current-class widget** and **reminder X minutes** before the slot
+8. **Current-session widget** and **reminder X minutes** before the slot
 9. **Markers** while recording → Obsidian-style Markdown  
-   `[[file.opus#t=508|08:28]] start of lecture`
+   `[[file.opus#t=508|08:28]] start of session`
 
 ## Smart folder matching
 
-If the pattern yields `UE581 seminar croquette` but `UE581 seminar croquette and tech` already exists under the SAF root, PlanRecorder **reuses the existing folder** (and the reverse), as long as the identifier matches.
+If the pattern yields `UE581 session croquette` but `UE581 session croquette and tech` already exists under the SAF root, PlanRecorder **reuses the existing folder** (and the reverse), as long as the identifier matches.
 
 ## No event / ambiguity
 
@@ -74,7 +74,7 @@ Local release (artifacts under `release/`, gitignored):
 ## Publish to a new GitHub repository
 
 ```bash
-gh repo create PlanRecorder --public --source=. --remote=origin --description "Calendar-aware audio notes for lectures (fork of AudioRecorder)"
+gh repo create PlanRecorder --public --source=. --remote=origin --description "Calendar-aware audio notes for sessions (fork of AudioRecorder)"
 git push -u origin HEAD
 ```
 

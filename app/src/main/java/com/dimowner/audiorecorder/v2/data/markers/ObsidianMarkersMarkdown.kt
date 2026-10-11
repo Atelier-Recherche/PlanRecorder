@@ -5,7 +5,7 @@ package com.dimowner.audiorecorder.v2.data.markers
 
 /**
  * Builds an Obsidian-friendly markdown note with audio timestamp links:
- * `[[file.opus#t=508|08:28]] debut du cours`
+ * `[[file.opus#t=508|08:28]] debut de session`
  */
 object ObsidianMarkersMarkdown {
 

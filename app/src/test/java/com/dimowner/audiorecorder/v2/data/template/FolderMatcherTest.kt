@@ -11,7 +11,7 @@ class FolderMatcherTest {
         "UE250 histoire (en théorie)",
         "UE323 Technocraties III",
         "UE413 carbone et science social",
-        "UE581 seminaire croquette et tech",
+        "UE581 session croquette et tech",
         "UE728 Science Sociale & IA",
         "Perso",
     )
@@ -19,16 +19,16 @@ class FolderMatcherTest {
     @Test
     fun `matches shorter event title to longer existing folder`() {
         val resolved = FolderMatcher.resolveExistingFolder(
-            desiredFolderName = "UE581 seminaire croquette",
+            desiredFolderName = "UE581 session croquette",
             rootFolderNames = root,
         )
-        assertEquals("UE581 seminaire croquette et tech", resolved)
+        assertEquals("UE581 session croquette et tech", resolved)
     }
 
     @Test
     fun `matches longer event title to shorter folder`() {
         val resolved = FolderMatcher.resolveExistingFolder(
-            desiredFolderName = "UE581 dernier seminaire croquette et technocraties",
+            desiredFolderName = "UE581 derniere session croquette et technocraties",
             rootFolderNames = listOf("UE581 CT 2026", "UE323 Technocraties III"),
         )
         // Same UE code is the decisive signal when titles diverge a lot

@@ -13,7 +13,6 @@ import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 import android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
-import android.view.View
 import android.widget.RemoteViews
 import com.dimowner.audiorecorder.AppConstants
 import com.dimowner.audiorecorder.R
@@ -25,7 +24,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 /**
- * Home-screen widget: current/next course, live timer, start / stop (opens app) / refresh.
+ * logo [open app] | title+timer [open app] | [Stop/REC] [Refresh]
  */
 @AndroidEntryPoint
 class CourseRecordingWidget : AppWidgetProvider() {
@@ -106,7 +105,6 @@ class CourseRecordingWidget : AppWidgetProvider() {
             context.sendBroadcast(intent)
         }
 
-        /** Called from [com.dimowner.audiorecorder.v2.audio.AudioRecordingService] about once/sec. */
         fun onRecordingProgress(context: Context, isRecording: Boolean, durationMills: Long) {
             setRecordingState(isRecording, durationMills)
             requestUpdate(context)
@@ -124,10 +122,6 @@ internal fun updateCourseWidget(
 ) {
     val views = RemoteViews(context.packageName, R.layout.course_recording_widget)
     views.setTextViewText(R.id.txt_course_title, courseLabel)
-    // Always show rec + stop + refresh on one row (colored drawables stay visible on light tiles).
-    views.setViewVisibility(R.id.btn_course_record, View.VISIBLE)
-    views.setViewVisibility(R.id.btn_course_stop, View.VISIBLE)
-    views.setViewVisibility(R.id.btn_course_refresh, View.VISIBLE)
     if (isRecording) {
         views.setTextViewText(
             R.id.txt_recording_timer,
@@ -136,13 +130,40 @@ internal fun updateCourseWidget(
                 TimeUtils.formatTimeIntervalHourMinSec2(durationMills),
             ),
         )
+        views.setImageViewResource(R.id.btn_course_rec_stop, R.drawable.ic_widget_square)
+        views.setContentDescription(
+            R.id.btn_course_rec_stop,
+            context.getString(R.string.course_widget_stop),
+        )
+        views.setOnClickPendingIntent(R.id.btn_course_rec_stop, courseStopPendingIntent(context))
     } else {
         views.setTextViewText(R.id.txt_recording_timer, context.getString(R.string.course_widget_idle))
+        views.setImageViewResource(R.id.btn_course_rec_stop, R.drawable.ic_widget_mic)
+        views.setContentDescription(
+            R.id.btn_course_rec_stop,
+            context.getString(R.string.course_widget_record),
+        )
+        views.setOnClickPendingIntent(R.id.btn_course_rec_stop, courseRecordingPendingIntent(context))
     }
-    views.setOnClickPendingIntent(R.id.btn_course_record, courseRecordingPendingIntent(context))
-    views.setOnClickPendingIntent(R.id.btn_course_stop, courseStopPendingIntent(context))
+    val openApp = courseOpenAppPendingIntent(context)
+    views.setOnClickPendingIntent(R.id.btn_course_logo, openApp)
+    views.setOnClickPendingIntent(R.id.area_course_info, openApp)
     views.setOnClickPendingIntent(R.id.btn_course_refresh, courseRefreshPendingIntent(context))
     appWidgetManager.updateAppWidget(appWidgetId, views)
+}
+
+@SuppressLint("WrongConstant")
+private fun courseOpenAppPendingIntent(context: Context): PendingIntent {
+    val intent = Intent(context, HomeActivity::class.java).apply {
+        flags = FLAG_ACTIVITY_NEW_TASK or FLAG_ACTIVITY_CLEAR_TOP or FLAG_ACTIVITY_SINGLE_TOP
+        action = Intent.ACTION_MAIN
+    }
+    return PendingIntent.getActivity(
+        context,
+        15,
+        intent,
+        AppConstants.PENDING_INTENT_FLAGS or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 }
 
 @SuppressLint("WrongConstant")
@@ -159,7 +180,6 @@ private fun courseRecordingPendingIntent(context: Context): PendingIntent {
 
 @SuppressLint("WrongConstant")
 private fun courseStopPendingIntent(context: Context): PendingIntent {
-    // Bring Home to foreground so the rename/export dialog can be confirmed.
     val intent = Intent(context, HomeActivity::class.java).apply {
         flags = FLAG_ACTIVITY_NEW_TASK or FLAG_ACTIVITY_CLEAR_TOP or FLAG_ACTIVITY_SINGLE_TOP
         putExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING, true)
