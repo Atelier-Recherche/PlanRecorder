@@ -57,8 +57,10 @@ Local release (artifacts under `release/`, gitignored):
 
 ```powershell
 .\scripts\release.ps1
-# or with a GitHub release:
-.\scripts\release.ps1 -Version 1.0.0 -CreateGithubRelease
+# bump patch versionName + versionCode in build.gradle.kts:
+.\scripts\release.ps1 -Bump
+# explicit version + GitHub release:
+.\scripts\release.ps1 -Version 1.1.0 -CreateGithubRelease
 ```
 
 ## First-time setup

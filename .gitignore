@@ -13,5 +13,4 @@
 *.apk
 !art/**
 
-# Optional local-only override of the release script
-/scripts/release.local.ps1
+release.ps1

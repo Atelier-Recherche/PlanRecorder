@@ -57,8 +57,10 @@ Release locale (artefacts dans `release/`, ignoré par git) :
 
 ```powershell
 .\scripts\release.ps1
-# ou avec tag GitHub :
-.\scripts\release.ps1 -Version 1.0.0 -CreateGithubRelease
+# incrémenter versionName (patch) + versionCode dans build.gradle.kts :
+.\scripts\release.ps1 -Bump
+# version explicite + tag GitHub :
+.\scripts\release.ps1 -Version 1.1.0 -CreateGithubRelease
 ```
 
 ## Première utilisation
