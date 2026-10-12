@@ -41,6 +41,8 @@ data class RecordEntity(
     @ColumnInfo(name = "isMovedToRecycle") val isMovedToRecycle: Boolean,
     @ColumnInfo(name = "amps") val amps: IntArray,
     @ColumnInfo(name = "description", defaultValue = "") val description: String = "",
+    /** True after a successful copy to the user-chosen PlanRecorder SAF export folder. */
+    @ColumnInfo(name = "isExportedToSaf", defaultValue = "0") val isExportedToSaf: Boolean = false,
 ) {
 
     override fun equals(other: Any?): Boolean {
@@ -65,7 +67,8 @@ data class RecordEntity(
         if (isWaveformProcessed != other.isWaveformProcessed) return false
         if (isMovedToRecycle != other.isMovedToRecycle) return false
         if (!amps.contentEquals(other.amps)) return false
-        return description == other.description
+        if (description != other.description) return false
+        return isExportedToSaf == other.isExportedToSaf
     }
 
     override fun hashCode(): Int {
@@ -86,6 +89,7 @@ data class RecordEntity(
         result = 31 * result + isMovedToRecycle.hashCode()
         result = 31 * result + amps.contentHashCode()
         result = 31 * result + description.hashCode()
+        result = 31 * result + isExportedToSaf.hashCode()
         return result
     }
 }

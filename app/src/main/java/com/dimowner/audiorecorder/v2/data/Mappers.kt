@@ -39,6 +39,7 @@ fun RecordEntity.toRecord(): Record {
         isMovedToRecycle = isMovedToRecycle,
         amps = amps,
         description = description,
+        isExportedToSaf = isExportedToSaf,
     )
 }
 
@@ -61,6 +62,7 @@ fun Record.toRecordEntity(): RecordEntity {
         isMovedToRecycle = this.isMovedToRecycle,
         amps = this.amps,
         description = this.description,
+        isExportedToSaf = this.isExportedToSaf,
     )
 }
 

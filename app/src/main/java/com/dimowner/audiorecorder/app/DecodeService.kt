@@ -295,14 +295,9 @@ class DecodeService : Service() {
 					override fun onFinishProcessing(data: IntArray, duration: Long) {
 						serviceScope.launch(ioDispatcher) {
 							if (recordId < 0) return@launch
-							recordsDataSource.getRecord(recordId)?.let { record ->
-								recordsDataSource.updateRecord(
-									record.copy(
-										amps = data,
-										isWaveformProcessed = true
-									)
-								)
-							}
+							// Partial update only: a full updateRecord() can race with SAF export
+							// and overwrite isExportedToSaf back to false.
+							recordsDataSource.updateWaveform(recordId, data)
 							withContext(mainDispatcher) {
 								decodeListener?.onFinishProcessing(recordId, data)
 								stopService()

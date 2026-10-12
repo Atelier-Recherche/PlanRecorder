@@ -1018,7 +1018,8 @@ data class RecordListItem(
     val added: Long,
     val isBookmarked: Boolean,
     val description: String = "",
-    val format: String = ""
+    val format: String = "",
+    val isExportedToSaf: Boolean = false,
 )
 
 internal sealed class RecordsScreenEvent {
@@ -1089,6 +1090,7 @@ internal fun Record.toRecordListItem(context: Context): RecordListItem {
         added = this.added,
         isBookmarked = this.isBookmarked,
         description = this.description,
-        format = this.format
+        format = this.format,
+        isExportedToSaf = this.isExportedToSaf,
     )
 }

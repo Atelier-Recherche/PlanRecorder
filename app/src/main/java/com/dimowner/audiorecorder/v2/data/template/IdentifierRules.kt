@@ -132,6 +132,17 @@ object IdentifierRules {
     }
 
     /**
+     * True when [name] is only an identifier (e.g. `UE150`) with no title rest.
+     * Used to hide bare codes from folder suggestion menus.
+     */
+    fun isBareIdentifier(name: String?, rulesText: String?): Boolean {
+        if (name.isNullOrBlank()) return false
+        val leaf = name.substringAfterLast('/').substringAfterLast('\\').trim()
+        val parts = parseId(leaf, rulesText)
+        return parts.id.isNotBlank() && parts.titleRest.isBlank()
+    }
+
+    /**
      * Human-readable preview lines for settings, e.g.
      * `UE323 - Technocraties III → [id]=UE323 · [title_rest]=Technocraties III`
      */

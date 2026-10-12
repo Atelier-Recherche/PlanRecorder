@@ -228,7 +228,7 @@ internal fun RecordsScreen(
                 )
             } else if (uiState.selectedRecords.isEmpty()) {
                 ScrollableRecordsTopBar(
-                    stringResource(id = R.string.records),
+                    stringResource(id = R.string.records_local_title),
                     uiState.sortOrder.toText(context),
                     filterActiveCount = uiState.filter.activeCount,
                     onBackPressed = { onPopBackStack() },
@@ -321,6 +321,19 @@ internal fun RecordsScreen(
                             .fillMaxWidth()
                             .weight(1f),
                     ) {
+                        if (uiState.recordsMap.isNotEmpty() &&
+                            uiState.searchQuery.isEmpty() &&
+                            !uiState.filter.bookmarkedOnly
+                        ) {
+                            item(key = "local_backups_hint") {
+                                Text(
+                                    text = stringResource(R.string.records_local_hint),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(16.dp, 8.dp, 16.dp, 4.dp),
+                                )
+                            }
+                        }
                         if (uiState.showDeletedRecordsButton) {
                             item(key = "trash_button") {
                                 Surface(
@@ -389,6 +402,7 @@ internal fun RecordsScreen(
                                     duration = record.duration,
                                     description = record.description,
                                     isBookmarked = record.isBookmarked,
+                                    isExportedToSaf = record.isExportedToSaf,
                                     isSelected = record.recordId == uiState.activeRecord?.recordId
                                             || uiState.selectedRecords.contains(record),
                                     isShowMenuButton = uiState.selectedRecords.isEmpty()

@@ -562,6 +562,7 @@ fun UpdateNameAndDescriptionDialog(
     destinationFolder: String = "",
     showDestinationFolder: Boolean = false,
     folderSuggestions: List<String> = emptyList(),
+    onDestinationFolderSelected: (String) -> Unit = {},
 ) {
     val nameValue = remember { mutableStateOf(recordName) }
     val descriptionValue = remember { mutableStateOf(recordDescription) }
@@ -677,6 +678,8 @@ fun UpdateNameAndDescriptionDialog(
                                         onClick = {
                                             destinationValue.value = suggestion
                                             folderMenuExpanded.value = false
+                                            // Rebuild file name ([id], [NN], …) for the chosen folder.
+                                            onDestinationFolderSelected(suggestion)
                                         },
                                     )
                                 }

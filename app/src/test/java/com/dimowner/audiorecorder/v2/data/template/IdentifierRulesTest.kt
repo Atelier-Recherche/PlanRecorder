@@ -40,6 +40,14 @@ class IdentifierRulesTest {
     }
 
     @Test
+    fun `bare identifier has no title rest`() {
+        assertTrue(IdentifierRules.isBareIdentifier("UE150", "UE#+"))
+        assertTrue(IdentifierRules.isBareIdentifier("Sessions/UE150", "UE#+"))
+        assertTrue(!IdentifierRules.isBareIdentifier("UE150 histoire", "UE#+"))
+        assertTrue(!IdentifierRules.isBareIdentifier("Perso", "UE#+"))
+    }
+
+    @Test
     fun `obsidian marker line format`() {
         val md = com.dimowner.audiorecorder.v2.data.markers.ObsidianMarkersMarkdown.build(
             "01-T163638-140426-UE323.opus",

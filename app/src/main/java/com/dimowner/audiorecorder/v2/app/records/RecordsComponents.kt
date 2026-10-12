@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Badge
@@ -532,6 +533,7 @@ fun RecordListItemView(
     onClickBookmark: (Boolean) -> Unit,
     onClickMenu: (RecordDropDownMenuItemId) -> Unit,
     onClickDescription: () -> Unit,
+    isExportedToSaf: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val expanded = remember { mutableStateOf(false) }
@@ -584,6 +586,14 @@ fun RecordListItemView(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                     )
+                    if (isExportedToSaf) {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = stringResource(id = R.string.record_exported_cd),
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                     Text(
                         text = details,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -598,7 +608,7 @@ fun RecordListItemView(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .weight(1f)
                             .wrapContentHeight(),
                     )
                 }

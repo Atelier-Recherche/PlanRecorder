@@ -58,6 +58,12 @@ interface RecordsDataSource {
 
     suspend fun updateRecords(records: List<Record>): Int
 
+    /** Marks a record as successfully copied to the PlanRecorder SAF folder. */
+    suspend fun markExportedToSaf(recordId: Long): Boolean
+
+    /** Updates waveform amps without touching other columns (e.g. export flag). */
+    suspend fun updateWaveform(recordId: Long, amps: IntArray): Boolean
+
     suspend fun renameRecord(record: Record, newName: String): Boolean
 
     /**

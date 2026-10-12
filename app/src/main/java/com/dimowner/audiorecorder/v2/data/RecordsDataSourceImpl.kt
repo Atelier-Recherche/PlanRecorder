@@ -169,6 +169,14 @@ class RecordsDataSourceImpl @Inject internal constructor(
         return recordDao.updateRecord(record.toRecordEntity()) == 1
     }
 
+    override suspend fun markExportedToSaf(recordId: Long): Boolean {
+        return recordDao.markExportedToSaf(recordId) == 1
+    }
+
+    override suspend fun updateWaveform(recordId: Long, amps: IntArray): Boolean {
+        return recordDao.updateWaveform(recordId, amps) == 1
+    }
+
     override suspend fun updateRecords(records: List<Record>): Int {
         return recordDao.updateRecords(records.map { it.toRecordEntity() })
     }

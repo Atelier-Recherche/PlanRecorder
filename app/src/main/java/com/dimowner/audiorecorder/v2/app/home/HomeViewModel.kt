@@ -602,7 +602,7 @@ class HomeViewModel @Inject constructor(
         val rootFolders = root?.let { safStorageManager.listDirectoryNames(it) }.orEmpty()
         val rules = prefs.identifierRulesText
         val idFolders = FolderMatcher.listUeFolders(rootFolders, rules)
-        val seenFromPrefs = prefs.seenIdentifiers.toList().sorted()
+            .filterNot { IdentifierRules.isBareIdentifier(it, rules) }
         rememberSeenIds(rootFolders, event?.title)
 
         val draft = TemplateEngine.resolve(
@@ -630,40 +630,24 @@ class HomeViewModel @Inject constructor(
             identifierRulesText = rules,
         )
 
+        // Full folder names only — bare codes like "UE150" stay out of the picker.
         val suggestions = when {
-            event == null || ambiguous -> (idFolders + seenFromPrefs).distinct()
+            event == null || ambiguous -> idFolders.distinct()
             else -> {
                 val matched = FolderMatcher.rankMatches(
                     resolved.relativeDir.substringAfterLast('/'),
                     rootFolders,
                     rules,
                 ).map { it.folderName }
-                (listOf(resolved.relativeDir) + matched + idFolders + seenFromPrefs).distinct()
+                (listOf(resolved.relativeDir) + matched + idFolders)
+                    .filterNot { IdentifierRules.isBareIdentifier(it, rules) }
+                    .distinct()
             }
         }
 
         val finalResolved = if ((event == null || ambiguous) && idFolders.isNotEmpty()) {
-            // Prefill with first ID folder; derive tags from the folder name itself.
-            val pick = idFolders.first()
-            val existingInPick = root?.let {
-                safStorageManager.ensureDir(it, pick)?.let { d -> safStorageManager.listFileNames(d) }
-            }.orEmpty()
-            val synthetic = com.dimowner.audiorecorder.v2.data.calendar.CalendarEvent(
-                title = pick,
-                calendarName = "",
-                description = null,
-                startTimeMillis = timeMillis,
-                endTimeMillis = timeMillis,
-            )
-            TemplateEngine.resolve(
-                event = synthetic,
-                timeMillis = timeMillis,
-                folderPattern = "[id] [title_rest]",
-                filePattern = prefs.filePattern,
-                existingNamesInTargetDir = existingInPick,
-                rootFolderNames = rootFolders,
-                identifierRulesText = rules,
-            ).copy(relativeDir = pick)
+            resolveFileNameForDestinationFolder(idFolders.first(), timeMillis)
+                ?: resolved.copy(relativeDir = idFolders.first())
         } else {
             resolved
         }
@@ -672,6 +656,54 @@ class HomeViewModel @Inject constructor(
             resolved = finalResolved,
             folderSuggestions = suggestions,
         )
+    }
+
+    /**
+     * Rebuilds [ResolvedPath] so `[id]` / `[title_rest]` / `[NN]` match [destinationFolder]
+     * (leaf name), while keeping the recording timestamp.
+     */
+    private fun resolveFileNameForDestinationFolder(
+        destinationFolder: String,
+        timeMillis: Long = recordingSessionContext.capturedAtMillis.takeIf { it > 0 }
+            ?: System.currentTimeMillis(),
+    ): ResolvedPath? {
+        val folder = destinationFolder.trim().trim('/')
+        if (folder.isEmpty()) return null
+        val rules = prefs.identifierRulesText
+        val leaf = folder.substringAfterLast('/').substringAfterLast('\\')
+        val root = safStorageManager.getRoot(prefs.safRootTreeUri)
+        val rootFolders = root?.let { safStorageManager.listDirectoryNames(it) }.orEmpty()
+        val existingInPick = root?.let {
+            safStorageManager.ensureDir(it, folder)?.let { d -> safStorageManager.listFileNames(d) }
+        }.orEmpty()
+        val synthetic = com.dimowner.audiorecorder.v2.data.calendar.CalendarEvent(
+            title = leaf,
+            calendarName = "",
+            description = null,
+            startTimeMillis = timeMillis,
+            endTimeMillis = timeMillis,
+        )
+        return TemplateEngine.resolve(
+            event = synthetic,
+            timeMillis = timeMillis,
+            folderPattern = "[id] [title_rest]",
+            filePattern = prefs.filePattern,
+            existingNamesInTargetDir = existingInPick,
+            rootFolderNames = rootFolders,
+            identifierRulesText = rules,
+        ).copy(relativeDir = folder)
+    }
+
+    private fun onRenameDestinationFolderSelected(destinationFolder: String) {
+        viewModelScope.launch(ioDispatcher) {
+            val resolved = resolveFileNameForDestinationFolder(destinationFolder) ?: return@launch
+            withContext(mainDispatcher) {
+                _state.value = _state.value.copy(
+                    destinationFolder = resolved.relativeDir,
+                    recordName = resolved.fileBaseName.ifBlank { _state.value.recordName },
+                )
+            }
+        }
     }
 
     private fun handleNewRecordingPartStarted(recordId: Long) {
@@ -1227,6 +1259,7 @@ class HomeViewModel @Inject constructor(
         CourseRecordingWidget.requestUpdate(getApplication())
 
         if (uri != null) {
+            recordsDataSource.markExportedToSaf(record.id)
             emitEvent(
                 HomeScreenEvent.ShowInfoSnack(
                     getApplication<Application>().getString(
@@ -1581,6 +1614,9 @@ class HomeViewModel @Inject constructor(
                     action.destinationFolder,
                 )
             }
+            is HomeScreenAction.SelectRenameDestinationFolder -> {
+                onRenameDestinationFolderSelected(action.destinationFolder)
+            }
             HomeScreenAction.OnSeekStart -> handleSeekStart()
             is HomeScreenAction.OnSeekProgress -> handleSeekProgress(action.mills)
             is HomeScreenAction.OnSeekEnd -> handleSeekEnd(action.mills)
@@ -1882,6 +1918,7 @@ sealed class HomeScreenAction {
         val writeToFile: Boolean,
         val destinationFolder: String = "",
     ) : HomeScreenAction()
+    data class SelectRenameDestinationFolder(val destinationFolder: String) : HomeScreenAction()
     data object OnSeekStart : HomeScreenAction()
     data object OnPlayClick : HomeScreenAction()
     data object OnPauseClick : HomeScreenAction()

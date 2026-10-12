@@ -47,6 +47,16 @@ interface RecordDao {
     @Update
     fun updateRecords(records: List<RecordEntity>): Int // Returns the total number of updated rows
 
+    /** Partial update so waveform decode cannot wipe [isExportedToSaf]. */
+    @Query(
+        "UPDATE records SET amps = :amps, isWaveformProcessed = 1 WHERE id = :recordId",
+    )
+    fun updateWaveform(recordId: Long, amps: IntArray): Int
+
+    /** Partial update so other writers cannot race-clear the export flag. */
+    @Query("UPDATE records SET isExportedToSaf = 1 WHERE id = :recordId")
+    fun markExportedToSaf(recordId: Long): Int
+
     @Delete
     fun deleteRecord(record: RecordEntity)
 

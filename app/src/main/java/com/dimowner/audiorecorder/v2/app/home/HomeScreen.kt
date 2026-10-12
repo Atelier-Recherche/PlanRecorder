@@ -624,6 +624,9 @@ internal fun HomeScreen(
                         destinationFolder = uiState.destinationFolder,
                         showDestinationFolder = uiState.showDestinationFolder,
                         folderSuggestions = uiState.folderSuggestions,
+                        onDestinationFolderSelected = { folder ->
+                            onAction(HomeScreenAction.SelectRenameDestinationFolder(folder))
+                        },
                     )
                 }
 //                if (uiState.showLocalStorageInfoDialog) {

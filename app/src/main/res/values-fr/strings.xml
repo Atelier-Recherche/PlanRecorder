@@ -2,6 +2,10 @@
 	<string name="app_name">PlanRecorder</string>
 
 	<string name="records">Enregistrements</string>
+	<!-- Écran liste : copies dans l’app, distinctes du dossier d’export SAF -->
+	<string name="records_local_title">Sauvegardes locales</string>
+	<string name="record_exported_cd">Exporté vers le dossier PlanRecorder</string>
+	<string name="records_local_hint">Copies conservées dans l’app. ✓ = exporté vers votre dossier PlanRecorder.</string>
 	<string name="settings">Paramètres</string>
 	<string name="setup">Configuration</string>
 	<string name="welcome_1">Bienvenue dans une application simple et rapide</string>

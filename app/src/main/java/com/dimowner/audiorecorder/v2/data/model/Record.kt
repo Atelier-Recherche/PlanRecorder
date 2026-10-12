@@ -36,6 +36,8 @@ data class Record(
     val amps: IntArray,
     /** Optional user-provided description stored as COMMENT tag in the audio file metadata. */
     val description: String,
+    /** True after a successful copy to the user-chosen PlanRecorder SAF export folder. */
+    val isExportedToSaf: Boolean = false,
 ) {
 
     @SuppressWarnings("CyclomaticComplexMethod")
@@ -61,7 +63,8 @@ data class Record(
         if (isWaveformProcessed != other.isWaveformProcessed) return false
         if (isMovedToRecycle != other.isMovedToRecycle) return false
         if (!amps.contentEquals(other.amps)) return false
-        return description == other.description
+        if (description != other.description) return false
+        return isExportedToSaf == other.isExportedToSaf
     }
 
     override fun hashCode(): Int {
@@ -82,6 +85,7 @@ data class Record(
         result = 31 * result + isMovedToRecycle.hashCode()
         result = 31 * result + amps.contentHashCode()
         result = 31 * result + description.hashCode()
+        result = 31 * result + isExportedToSaf.hashCode()
         return result
     }
 }
