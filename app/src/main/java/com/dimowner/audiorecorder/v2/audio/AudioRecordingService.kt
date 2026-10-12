@@ -127,6 +127,18 @@ class AudioRecordingService : Service() {
                 context.startService(intent)
             }
         }
+
+        /**
+         * Stops an in-progress recording without needing a bound [ServiceConnection].
+         * Used by the home-screen widget and by cold-start stop intents where binding is async.
+         */
+        fun requestStop(context: Context) {
+            val intent = Intent(context, AudioRecordingService::class.java).apply {
+                action = ACTION_STOP_RECORDING
+            }
+            // Service is already a foreground service while recording; startService is enough.
+            context.startService(intent)
+        }
     }
 
     private val binder = ServiceBinder()
@@ -183,7 +195,12 @@ class AudioRecordingService : Service() {
     private val _recordingState = MutableStateFlow(RecordingServiceState())
     val recordingState: StateFlow<RecordingServiceState> = _recordingState.asStateFlow()
 
-    private val _event = MutableSharedFlow<AudioRecordingServiceEvent?>()
+    // Buffer so RecordingStopped is not lost if HomeViewModel subscribes a moment late
+    // (typical when Stop is pressed from the home-screen widget before binding completes).
+    private val _event = MutableSharedFlow<AudioRecordingServiceEvent?>(
+        extraBufferCapacity = 16,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST,
+    )
     val event: SharedFlow<AudioRecordingServiceEvent?> = _event
 
     /**
@@ -888,7 +905,6 @@ class AudioRecordingService : Service() {
         // - Move updated to recycle if requested to delete the record, otherwise set it as active record
         withContext(ioDispatcher) {
             val recordedRecordId = prefs.recordedRecordId
-            prefs.recordedRecordId = -1
             if (recordedRecordId >= 0) {
                 val record = recordsDataSource.getRecord(recordedRecordId)
                 if (record != null) {
@@ -908,6 +924,10 @@ class AudioRecordingService : Service() {
                         amps = recordingFullDataBuffer.downsampleToIntArray(),
                     )
                     val success = recordsDataSource.updateRecord(recordUpdated)
+                    // Clear only after duration is written so a concurrent broken-record check
+                    // (e.g. HomeActivity opened from the widget Stop) cannot treat this file as
+                    // an interrupted previous recording (duration still 0).
+                    prefs.recordedRecordId = -1
                     _recordingState.value = _recordingState.value.copy(
                         recordingState = RecordingState.STOPPED,
                     )
@@ -918,6 +938,13 @@ class AudioRecordingService : Service() {
                             applicationContext.getString(R.string.msg_recording_saved_with_name, record.name)
                         ))
                         if (isNotMaxDurationHandling) {
+                            // Persist before stopSelf(): the SharedFlow dies with the service, so a
+                            // widget stop that opens Home after finalization still gets the rename UI.
+                            if (prefs.askToRenameAfterRecordingStopped ||
+                                !prefs.safRootTreeUri.isNullOrBlank()
+                            ) {
+                                prefs.pendingRenameRecordId = recordedRecordId
+                            }
                             emitEvent(AudioRecordingServiceEvent.RecordingStopped(
                                 recordId = recordedRecordId,
                                 recordName = record.name,
@@ -935,6 +962,7 @@ class AudioRecordingService : Service() {
                         ))
                     }
                 } else {
+                    prefs.recordedRecordId = -1
                    //Failed to save record
                     emitEvent(AudioRecordingServiceEvent.ShowErrorSnack(
                         applicationContext.getString(R.string.msg_save_recording_failed)
@@ -985,6 +1013,9 @@ class AudioRecordingService : Service() {
             emitEvent(AudioRecordingServiceEvent.ShowInfoSnack(
                 applicationContext.getString(R.string.msg_recording_saved_with_name, recovered.name)
             ))
+            if (prefs.askToRenameAfterRecordingStopped || !prefs.safRootTreeUri.isNullOrBlank()) {
+                prefs.pendingRenameRecordId = recordId
+            }
             emitEvent(AudioRecordingServiceEvent.RecordingStopped(
                 recordId = recordId,
                 recordName = recovered.name,

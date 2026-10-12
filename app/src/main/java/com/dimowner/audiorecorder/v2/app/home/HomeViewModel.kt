@@ -194,6 +194,10 @@ class HomeViewModel @Inject constructor(
     private var recordingService: AudioRecordingService? = null
     private var isRecordingServiceBound = false
 
+    /** True between a user/widget stop request and [AudioRecordingServiceEvent.RecordingStopped]. */
+    @Volatile
+    private var stopRecordingRequested = false
+
     private val recordingServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             Timber.d("HomeViewModel onServiceConnected: $name")
@@ -203,14 +207,22 @@ class HomeViewModel @Inject constructor(
             recordingService?.let { svc ->
                 subscribeRecordingServiceState(svc)
                 subscribeRecordingServiceEvents(svc)
-                // If the service connected while idle but prefs still hold a recording ID,
-                // a previous recording was interrupted (e.g. force-kill) — the broken-record
-                // check in onStart() was skipped because the service wasn't bound yet.
-                // Run it now that we can confirm recording is not actually in progress.
+                if (stopRecordingRequested && svc.recordingState.value.isRecording()) {
+                    svc.stopRecording()
+                }
                 val svcState = svc.recordingState.value
-                if (!svcState.isRecording() && prefs.recordedRecordId >= 0) {
-                    viewModelScope.launch(ioDispatcher) {
-                        checkForBrokenRecords()
+                if (!svcState.isRecording()) {
+                    // Widget stop often finalizes before bind: recover rename dialog via prefs.
+                    if (stopRecordingRequested || prefs.pendingRenameRecordId >= 0) {
+                        stopRecordingRequested = false
+                        viewModelScope.launch(ioDispatcher) {
+                            consumePendingRenameIfNeeded()
+                        }
+                    } else if (prefs.recordedRecordId >= 0) {
+                        // Idle + stale recorded id → previous recording was interrupted.
+                        viewModelScope.launch(ioDispatcher) {
+                            checkForBrokenRecords()
+                        }
                     }
                 }
             }
@@ -441,7 +453,10 @@ class HomeViewModel @Inject constructor(
                         // event instead of the StateFlow state ensures delivery even when the
                         // rapid STOPPED→IDLE StateFlow transition is conflated and the collector
                         // misses the STOPPED state.
-                        handleRecordingStopped(event.recordId, event.recordName)
+                        stopRecordingRequested = false
+                        viewModelScope.launch(ioDispatcher) {
+                            handleRecordingStopped(event.recordId, event.recordName)
+                        }
                     }
                     is AudioRecordingServiceEvent.NewRecordingPartStarted -> {
                         handleNewRecordingPartStarted(event.recordId)
@@ -512,15 +527,22 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun handleRecordingStopped(recordedRecordId: Long, recordName: String?) {
+        // Clear the persisted fallback so a later onStart cannot show the dialog twice.
+        if (prefs.pendingRenameRecordId == recordedRecordId) {
+            prefs.pendingRenameRecordId = -1
+        }
         withContext(ioDispatcher) {
             if (recordedRecordId >= 0) {
                 if (_state.value.isDeleteRecordingProgressRequested) {
                     moveRecordToRecycle(recordedRecordId, false)
                 } else if (prefs.askToRenameAfterRecordingStopped || !prefs.safRootTreeUri.isNullOrBlank()) {
+                    // Already showing (event + pending-rename fallback raced) — do not reset.
+                    if (_state.value.showRenameAfterRecordingDialog) return@withContext
                     updateState()
                     val record = recordsDataSource.getRecord(recordedRecordId)
                     val suggested = resolveSuggestedSave()
                     withContext(mainDispatcher) {
+                        if (_state.value.showRenameAfterRecordingDialog) return@withContext
                         _state.value = _state.value.copy(
                             recordName = suggested.resolved.fileBaseName.ifBlank {
                                 recordName ?: _state.value.recordName
@@ -541,6 +563,21 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Shows the rename/export dialog when the service finished stop before this ViewModel
+     * could collect [AudioRecordingServiceEvent.RecordingStopped] (widget Stop cold-start).
+     */
+    private suspend fun consumePendingRenameIfNeeded() {
+        val pendingId = prefs.pendingRenameRecordId
+        if (pendingId < 0) return
+        if (_state.value.showRenameAfterRecordingDialog) {
+            prefs.pendingRenameRecordId = -1
+            return
+        }
+        val record = recordsDataSource.getRecord(pendingId)
+        handleRecordingStopped(pendingId, record?.name)
     }
 
     private data class SuggestedSave(
@@ -707,8 +744,17 @@ class HomeViewModel @Inject constructor(
         showLoadingProgress(true)
         viewModelScope.launch(ioDispatcher) {
             updateState(false)
-            // Check for broken records after a potentially interrupted recording
-            if (!state.value.isRecording() && prefs.recordedRecordId >= 0) {
+            // Prefer pending rename (widget stop) over broken-record detection.
+            if (prefs.pendingRenameRecordId >= 0) {
+                stopRecordingRequested = false
+                consumePendingRenameIfNeeded()
+            } else if (!stopRecordingRequested &&
+                !state.value.isRecording() &&
+                prefs.recordedRecordId >= 0
+            ) {
+                // Check for broken records after a potentially interrupted recording.
+                // Skip while a stop is in flight: the just-stopped file still has duration=0 until
+                // AudioRecordingService finishes writing metadata, which would false-trigger the dialog.
                 checkForBrokenRecords()
             }
             //Update playback progress if playback service is running and paused.
@@ -1425,6 +1471,11 @@ class HomeViewModel @Inject constructor(
     }
 
     fun handleStopRecordingClick() {
+        stopRecordingRequested = true
+        val context: Context = getApplication<Application>().applicationContext
+        // Always request stop via service intent so a cold start from the widget (binding still
+        // async) cannot no-op when recordingService is still null.
+        AudioRecordingService.requestStop(context)
         recordingService?.stopRecording()
         _state.value = state.value.copy(
             waveformState = _state.value.waveformState.copy(
@@ -1439,10 +1490,13 @@ class HomeViewModel @Inject constructor(
 
     fun handleOnDeleteRecordingProgressClick() {
         // Set the flag BEFORE stopping recording so handleRecordingStopped() sees it
+        stopRecordingRequested = true
         _state.value = state.value.copy(
             isDeleteRecordingProgressRequested = true,
             keepScreenOn = false,
         )
+        val context: Context = getApplication<Application>().applicationContext
+        AudioRecordingService.requestStop(context)
         recordingService?.stopRecording()
     }
 
@@ -1592,6 +1646,7 @@ class HomeViewModel @Inject constructor(
         // Surface the one-time local storage info once the rename prompt is out of the way,
         // so the two dialogs are shown sequentially rather than stacked.
 //        val showLocalStorageInfo = !prefs.isLocalStorageInfoShown
+        prefs.pendingRenameRecordId = -1
         _state.value = _state.value.copy(
             showRenameAfterRecordingDialog = false,
 //            showLocalStorageInfoDialog = showLocalStorageInfo,
@@ -1614,7 +1669,9 @@ class HomeViewModel @Inject constructor(
      */
     private suspend fun checkForBrokenRecords() {
         // Recording was in progress but the app restarted - recording was interrupted
+        if (stopRecordingRequested) return
         withContext(ioDispatcher) {
+            if (stopRecordingRequested) return@withContext
             // Only exclude the current recording ID when the service is actually alive and
             // recording/paused. If the service was killed (e.g. app force-stopped), the
             // recordedRecordId pref is stale and must not suppress broken-record detection.
@@ -1627,7 +1684,8 @@ class HomeViewModel @Inject constructor(
             // See onServiceConnected: when binding completes as idle it re-runs this check,
             // so genuinely interrupted recordings (force-kill) are still detected.
             val isServiceNotYetBound = recordingService == null && prefs.recordedRecordId >= 0
-            val currentRecordingId = if (isServiceActivelyRecording || isServiceNotYetBound) prefs.recordedRecordId else -1L
+            val currentRecordingId =
+                if (isServiceActivelyRecording || isServiceNotYetBound) prefs.recordedRecordId else -1L
             val brokenRecords = recordsDataSource.getBrokenRecords()
                 .filter { it.id != currentRecordingId }
             if (brokenRecords.isNotEmpty()) {

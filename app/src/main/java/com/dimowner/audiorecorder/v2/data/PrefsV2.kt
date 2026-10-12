@@ -48,6 +48,14 @@ interface PrefsV2 {
     var recordedRecordPartCounter: Int
     var recordedRecordBaseName: String?
 
+    /**
+     * Record id waiting for the post-stop rename/export dialog.
+     * Persisted so a stop from the widget still shows the dialog if [AudioRecordingService]
+     * finishes (and is destroyed) before HomeViewModel subscribes to its events.
+     * `-1` means none.
+     */
+    var pendingRenameRecordId: Long
+
     val recordCounter: Long
     fun incrementRecordCounter()
 

@@ -12,35 +12,43 @@ import android.content.Context
 import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+import android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
 import android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+import android.os.Handler
+import android.os.Looper
 import android.widget.RemoteViews
 import com.dimowner.audiorecorder.AppConstants
 import com.dimowner.audiorecorder.R
 import com.dimowner.audiorecorder.app.TransparentRecordingActivity
 import com.dimowner.audiorecorder.util.TimeUtils
 import com.dimowner.audiorecorder.v2.data.PrefsV2
-import com.dimowner.audiorecorder.v2.data.calendar.CalendarRepository
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import com.dimowner.audiorecorder.v2.di.WidgetEntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import timber.log.Timber
+import java.util.concurrent.Executors
 
 /**
  * logo [open app] | title+timer [open app] | [Stop/REC] [Refresh]
  */
-@AndroidEntryPoint
 class CourseRecordingWidget : AppWidgetProvider() {
-
-    @Inject
-    lateinit var calendarRepository: CalendarRepository
-
-    @Inject
-    lateinit var prefs: PrefsV2
 
     override fun onReceive(context: Context, intent: Intent?) {
         when (intent?.action) {
             ACTION_REFRESH, ACTION_RECORDING_TICK -> {
-                val manager = AppWidgetManager.getInstance(context)
-                val ids = manager.getAppWidgetIds(ComponentName(context, CourseRecordingWidget::class.java))
-                if (ids.isNotEmpty()) onUpdate(context, manager, ids)
+                val pendingResult = goAsync()
+                widgetExecutor.execute {
+                    try {
+                        refreshWidgets(context.applicationContext)
+                    } catch (t: Throwable) {
+                        Timber.e(t, "CourseRecordingWidget refresh failed")
+                    } finally {
+                        try {
+                            pendingResult.finish()
+                        } catch (t: Throwable) {
+                            Timber.w(t, "goAsync finish failed")
+                        }
+                    }
+                }
             }
             else -> super.onReceive(context, intent)
         }
@@ -51,33 +59,18 @@ class CourseRecordingWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
-        val calendarId = prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
-        val now = System.currentTimeMillis()
-        val grace = prefs.calendarEventWindowMinutes.coerceAtLeast(0) * 60_000L
-        val active = calendarRepository.getActiveEvent(now, calendarId, grace)
-        val label = active?.title
-            ?: calendarRepository.getUpcomingEvents(now, now + 6L * 60L * 60L * 1000L, calendarId)
-                .firstOrNull()?.title
-            ?: context.getString(R.string.course_widget_no_event)
-
-        val recording = isRecordingActive()
-        val duration = recordingDurationMills()
-        for (id in appWidgetIds) {
-            updateCourseWidget(
-                context = context,
-                appWidgetManager = appWidgetManager,
-                appWidgetId = id,
-                courseLabel = label,
-                isRecording = recording,
-                durationMills = duration,
-            )
-        }
+        // Keep the system callback non-blocking: schedule the same path as Refresh.
+        requestUpdate(context)
     }
 
     companion object {
         const val ACTION_REFRESH = "com.planrecorder.widget.REFRESH"
         const val ACTION_RECORDING_TICK = "com.planrecorder.widget.RECORDING_TICK"
+        const val ACTION_STOP_FROM_WIDGET = "com.planrecorder.widget.STOP"
         const val EXTRA_STOP_RECORDING = "extra_stop_recording"
+
+        private val widgetExecutor = Executors.newSingleThreadExecutor()
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         @Volatile
         private var recordingActive: Boolean = false
@@ -95,19 +88,62 @@ class CourseRecordingWidget : AppWidgetProvider() {
         fun recordingDurationMills(): Long = recordingDuration
 
         fun requestUpdate(context: Context) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, CourseRecordingWidget::class.java))
-            if (ids.isEmpty()) return
-            val intent = Intent(context, CourseRecordingWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            val appContext = context.applicationContext
+            widgetExecutor.execute {
+                try {
+                    refreshWidgets(appContext)
+                } catch (t: Throwable) {
+                    Timber.e(t, "CourseRecordingWidget.requestUpdate failed")
+                }
             }
-            context.sendBroadcast(intent)
         }
 
         fun onRecordingProgress(context: Context, isRecording: Boolean, durationMills: Long) {
             setRecordingState(isRecording, durationMills)
             requestUpdate(context)
+        }
+
+        private fun refreshWidgets(appContext: Context) {
+            val manager = AppWidgetManager.getInstance(appContext)
+            val ids = manager.getAppWidgetIds(
+                ComponentName(appContext, CourseRecordingWidget::class.java),
+            )
+            if (ids.isEmpty()) return
+            val (label, isRecording, duration) = resolveWidgetContent(appContext)
+            mainHandler.post {
+                for (id in ids) {
+                    try {
+                        updateCourseWidget(
+                            context = appContext,
+                            appWidgetManager = manager,
+                            appWidgetId = id,
+                            courseLabel = label,
+                            isRecording = isRecording,
+                            durationMills = duration,
+                        )
+                    } catch (t: Throwable) {
+                        Timber.e(t, "updateAppWidget($id) failed")
+                    }
+                }
+            }
+        }
+
+        private fun resolveWidgetContent(appContext: Context): Triple<String, Boolean, Long> {
+            val entryPoint = EntryPointAccessors.fromApplication(
+                appContext,
+                WidgetEntryPoint::class.java,
+            )
+            val prefs = entryPoint.prefs()
+            val calendarRepository = entryPoint.calendarRepository()
+            val calendarId = prefs.selectedCalendarId.takeIf { it != PrefsV2.NO_CALENDAR_FILTER }
+            val now = System.currentTimeMillis()
+            val grace = prefs.calendarEventWindowMinutes.coerceAtLeast(0) * 60_000L
+            val active = calendarRepository.getActiveEvent(now, calendarId, grace)
+            val label = active?.title
+                ?: calendarRepository.getUpcomingEvents(now, now + 6L * 60L * 60L * 1000L, calendarId)
+                    .firstOrNull()?.title
+                ?: appContext.getString(R.string.course_widget_no_event)
+            return Triple(label, isRecordingActive(), recordingDurationMills())
         }
     }
 }
@@ -155,7 +191,10 @@ internal fun updateCourseWidget(
 @SuppressLint("WrongConstant")
 private fun courseOpenAppPendingIntent(context: Context): PendingIntent {
     val intent = Intent(context, HomeActivity::class.java).apply {
-        flags = FLAG_ACTIVITY_NEW_TASK or FLAG_ACTIVITY_CLEAR_TOP or FLAG_ACTIVITY_SINGLE_TOP
+        flags = FLAG_ACTIVITY_NEW_TASK or
+            FLAG_ACTIVITY_CLEAR_TOP or
+            FLAG_ACTIVITY_SINGLE_TOP or
+            FLAG_ACTIVITY_REORDER_TO_FRONT
         action = Intent.ACTION_MAIN
     }
     return PendingIntent.getActivity(
@@ -180,10 +219,15 @@ private fun courseRecordingPendingIntent(context: Context): PendingIntent {
 
 @SuppressLint("WrongConstant")
 private fun courseStopPendingIntent(context: Context): PendingIntent {
+    // Activity PendingIntent keeps the user-gesture BAL exemption so the task reliably
+    // comes to the foreground; HomeActivity then requestStop()'s the recording service.
     val intent = Intent(context, HomeActivity::class.java).apply {
-        flags = FLAG_ACTIVITY_NEW_TASK or FLAG_ACTIVITY_CLEAR_TOP or FLAG_ACTIVITY_SINGLE_TOP
+        action = CourseRecordingWidget.ACTION_STOP_FROM_WIDGET
+        flags = FLAG_ACTIVITY_NEW_TASK or
+            FLAG_ACTIVITY_CLEAR_TOP or
+            FLAG_ACTIVITY_SINGLE_TOP or
+            FLAG_ACTIVITY_REORDER_TO_FRONT
         putExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING, true)
-        action = Intent.ACTION_MAIN
     }
     return PendingIntent.getActivity(
         context,

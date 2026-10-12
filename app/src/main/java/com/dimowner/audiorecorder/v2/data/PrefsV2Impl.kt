@@ -158,6 +158,14 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var pendingRenameRecordId: Long
+        get() = sharedPreferences.getLong(PREF_KEY_PENDING_RENAME_RECORD_ID, -1)
+        set(value) {
+            sharedPreferences.edit {
+                putLong(PREF_KEY_PENDING_RENAME_RECORD_ID, value)
+            }
+        }
+
     override val recordCounter: Long
         get() = sharedPreferences.getLong(PREF_KEY_RECORD_COUNTER, 1)
 
@@ -464,6 +472,7 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_RECORDED_RECORD_ID = "recorded_record_id"
         private const val PREF_KEY_RECORDED_RECORD_PART_COUNTER = "recorded_record_part_counter"
         private const val PREF_KEY_RECORDED_RECORD_BASE_NAME = "recorded_record_base_name"
+        private const val PREF_KEY_PENDING_RENAME_RECORD_ID = "pending_rename_record_id"
         private const val PREF_KEY_RECORDS_SORT_ORDER = "pref_records_sort_order"
         private const val PREF_KEY_IS_DYNAMIC_THEME = "pref_is_dynamic_theme"
         private const val PREF_KEY_IS_DARK_THEME = "pref_is_dark_theme"

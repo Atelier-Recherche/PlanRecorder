@@ -36,6 +36,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.dimowner.audiorecorder.app.main.MainActivity
 import com.dimowner.audiorecorder.v2.app.home.HomeViewModel
+import com.dimowner.audiorecorder.v2.audio.AudioRecordingService
 import com.dimowner.audiorecorder.v2.data.PrefsV2
 import com.dimowner.audiorecorder.v2.navigation.RecorderNavigationGraph
 import com.dimowner.audiorecorder.v2.theme.AppTheme
@@ -121,11 +122,13 @@ class HomeActivity: ComponentActivity() {
     }
 
     private fun handleStopRecordingIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING, false) != true) {
-            return
-        }
-        intent.removeExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING)
-        // Stop after the ViewModel is ready; brief delay covers cold start from widget.
+        val fromWidgetStop = intent?.action == CourseRecordingWidget.ACTION_STOP_FROM_WIDGET ||
+            intent?.getBooleanExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING, false) == true
+        if (!fromWidgetStop) return
+        intent?.removeExtra(CourseRecordingWidget.EXTRA_STOP_RECORDING)
+        // Stop the service immediately even before ViewModel binding completes.
+        AudioRecordingService.requestStop(applicationContext)
+        // Then sync UI / rename dialog via ViewModel (posted so the activity is attached).
         window.decorView.post {
             viewModel.handleStopRecordingClick()
         }
