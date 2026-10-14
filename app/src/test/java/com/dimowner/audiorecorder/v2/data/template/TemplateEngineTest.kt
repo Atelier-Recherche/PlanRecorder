@@ -90,6 +90,28 @@ class TemplateEngineTest {
     }
 
     @Test
+    fun `nextSessionNumber ignores non-audio files`() {
+        assertEquals(
+            2,
+            TemplateEngine.nextSessionNumber(
+                listOf(
+                    "01-session.opus",
+                    "02-notes.md",
+                    "03-transcript.txt",
+                    "99-readme.md",
+                ),
+            ),
+        )
+        assertEquals(
+            4,
+            TemplateEngine.nextSessionNumber(
+                listOf("01-a.wav", "02-b.mp3", "03-c.m4a", "10-notes.md"),
+            ),
+        )
+        assertEquals(1, TemplateEngine.nextSessionNumber(listOf("05-notes.md", "notes.txt")))
+    }
+
+    @Test
     fun `title without UE keeps full title_rest`() {
         val event = CalendarEvent(
             title = "Standup",

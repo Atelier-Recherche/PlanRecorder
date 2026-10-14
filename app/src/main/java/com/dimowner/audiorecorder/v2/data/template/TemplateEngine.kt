@@ -36,6 +36,9 @@ object TemplateEngine {
 
     private val SESSION_PREFIX = Regex("""^(\d{1,3})(?:[-_.]|$)""")
 
+    /** Only these extensions contribute to `[nn]` / `[NN]` session numbering. */
+    private val SESSION_AUDIO_EXTENSIONS = setOf("opus", "wav", "mp3", "m4a", "3gp")
+
     fun resolve(
         event: CalendarEvent?,
         timeMillis: Long = System.currentTimeMillis(),
@@ -120,7 +123,10 @@ object TemplateEngine {
     fun nextSessionNumber(existingNames: List<String>): Int {
         var max = 0
         for (name in existingNames) {
-            val base = name.substringBeforeLast('.').substringAfterLast('/')
+            val leaf = name.substringAfterLast('/')
+            val ext = leaf.substringAfterLast('.', missingDelimiterValue = "").lowercase(Locale.ROOT)
+            if (ext !in SESSION_AUDIO_EXTENSIONS) continue
+            val base = leaf.substringBeforeLast('.')
             val match = SESSION_PREFIX.find(base) ?: continue
             val n = match.groupValues[1].toIntOrNull() ?: continue
             if (n > max) max = n
