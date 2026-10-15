@@ -86,11 +86,6 @@ internal class SettingsViewModel @Inject constructor(
 
     private val decimalFormat: DecimalFormat
 
-    private val selectedFormat = prefs.settingRecordingFormat
-    private val selectedSampleRate = prefs.settingSampleRate
-    private val selectedBitRate = prefs.settingBitrate
-    private val selectedChannelCount = prefs.settingChannelCount
-
     private val formatsStrings = appContext.resources.getStringArray(R.array.formats2)
     private val sampleRateStrings = appContext.resources.getStringArray(R.array.sample_rates2)
     private val bitRateStrings = appContext.resources.getStringArray(R.array.bit_rates2)
@@ -107,6 +102,10 @@ internal class SettingsViewModel @Inject constructor(
     val state: State<SettingsState> = _state
 
     private fun createDefaultState(): SettingsState {
+        val selectedFormat = prefs.settingRecordingFormat
+        val selectedSampleRate = prefs.settingSampleRate
+        val selectedBitRate = prefs.settingBitrate
+        val selectedChannelCount = prefs.settingChannelCount
         return SettingsState(
             isDynamicColors = prefs.isDynamicTheme,
             isDarkTheme = prefs.isDarkTheme,

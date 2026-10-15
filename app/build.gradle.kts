@@ -19,8 +19,8 @@ android {
         applicationId = "com.planrecorder"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1005
-        versionName = "1.0.5"
+        versionCode = 1006
+        versionName = "1.0.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -282,6 +282,7 @@ dependencies {
     implementation(libs.androidx.media)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.common)
+    implementation(libs.element.opusencoder)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

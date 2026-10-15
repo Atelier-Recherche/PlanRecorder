@@ -23,7 +23,7 @@ object IdentifierRules {
 
     private val HASH_LINE = Regex("""^(.+?)(#+)(\+)?$""")
     private val SAMPLE_TITLES = listOf(
-        "UE323 - Technocraties III",
+        "UE101 - Introduction à l'exemple",
         "UE12 Intro",
         "MATH101 Algebra",
         "Session sans code",
@@ -144,7 +144,7 @@ object IdentifierRules {
 
     /**
      * Human-readable preview lines for settings, e.g.
-     * `UE323 - Technocraties III → [id]=UE323 · [title_rest]=Technocraties III`
+     * `UE101 - Introduction à l'exemple → [id]=UE101 · [title_rest]=Introduction à l'exemple`
      */
     fun buildPreview(rulesText: String?, sampleTitles: List<String> = SAMPLE_TITLES): String {
         val rules = parseRules(rulesText)

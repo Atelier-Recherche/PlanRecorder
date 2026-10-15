@@ -181,15 +181,25 @@ object AudioPeakNormalizer {
         channelCount: Int,
         output: File,
     ): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
-        return encodeCompressed(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val systemOk = encodeCompressed(
+                samples = samples,
+                sampleRate = sampleRate,
+                channelCount = channelCount,
+                output = output,
+                mime = MediaFormat.MIMETYPE_AUDIO_OPUS,
+                bitRate = 32_000,
+                muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG,
+            )
+            if (systemOk) return true
+            Timber.w("MediaCodec Opus encode failed; falling back to software Opus")
+        }
+        return encodePcmToOpusFile(
             samples = samples,
             sampleRate = sampleRate,
             channelCount = channelCount,
+            bitrate = 32_000,
             output = output,
-            mime = MediaFormat.MIMETYPE_AUDIO_OPUS,
-            bitRate = 32_000,
-            muxerFormat = MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG,
         )
     }
 

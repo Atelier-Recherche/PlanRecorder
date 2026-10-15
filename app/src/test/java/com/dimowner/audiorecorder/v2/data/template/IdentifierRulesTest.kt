@@ -9,9 +9,9 @@ class IdentifierRulesTest {
 
     @Test
     fun `hash plus means one or more digits`() {
-        val parts = IdentifierRules.parseId("UE323 - Technocraties III", "UE#+")
-        assertEquals("UE323", parts.id)
-        assertEquals("Technocraties III", parts.titleRest)
+        val parts = IdentifierRules.parseId("UE101 - Introduction à l'exemple", "UE#+")
+        assertEquals("UE101", parts.id)
+        assertEquals("Introduction à l'exemple", parts.titleRest)
         assertEquals("UE3", IdentifierRules.parseId("UE3 Intro", "UE#+").id)
     }
 
@@ -35,7 +35,7 @@ class IdentifierRulesTest {
     @Test
     fun `preview lists sample matches`() {
         val preview = IdentifierRules.buildPreview("UE###")
-        assertTrue(preview.contains("[id]=UE323"))
+        assertTrue(preview.contains("[id]=UE101"))
         assertTrue(preview.contains("aucun id") || preview.contains("UE12"))
     }
 

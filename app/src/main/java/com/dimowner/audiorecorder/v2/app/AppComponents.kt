@@ -806,7 +806,7 @@ fun UpdateNameAndDescriptionDialogPreview() {
         onAcceptClick = { _, _, _, _ -> },
         onDismissClick = {},
         showDontAskAgain = true,
-        destinationFolder = "Sessions/UE323 Technocraties III",
+        destinationFolder = "Sessions/UE101 Introduction à l'exemple",
         showDestinationFolder = true,
     )
 }

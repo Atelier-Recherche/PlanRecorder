@@ -27,6 +27,12 @@
 -keep class org.mp4parser.** { *; }
 -dontwarn org.mp4parser.**
 
+# Element Opus encoder (JNI + sealed SampleRate subclasses)
+-keep class io.element.android.opusencoder.** { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
 -keepattributes SourceFile,LineNumberTable        # Keep file names and line numbers.
 -keep public class * extends java.lang.Exception  # Optional: Keep custom exceptions.
 
