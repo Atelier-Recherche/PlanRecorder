@@ -281,7 +281,7 @@
 	<string name="info_m4a"><b>M4a</b> : encodé avec le codec audio AAC, possède une bonne qualité pour une petite taille. <b>(recommandé)</b></string>
 	<string name="info_wav"><b>Wav</b> : format audio non compressé. Prend plus de place que les autres formats. Il est nécessaire pour des cas spécifiques.</string>
 	<string name="info_opus"><b>Opus</b> : codec moderne idéal pour les notes de session (fichiers légers). Nécessite Android 10+.</string>
-	<string name="info_voice_filter_html"><![CDATA[<b>Filtrer pour les voix</b> active un préréglage adapté aux sessions : <b>Opus</b> à 32 kbps, mono, et source <b>Reconnaissance vocale</b>. Désactivez-le pour retrouver vos réglages précédents.]]></string>
+	<string name="info_voice_filter_html"><![CDATA[<b>Filtrer pour les voix</b> active un préréglage adapté aux sessions : <b>Opus</b> à 32 kbps, mono, et source <b>Reconnaissance vocale</b>. Quand c\'est disponible, active aussi la <b>suppression de bruit</b> Android (réduit clavier et bruit ambiant). Désactivez-le pour retrouver vos réglages précédents.]]></string>
 	<string name="info_planrecorder_html"><![CDATA[<b>PlanRecorder</b> nomme et classe les enregistrements selon l\'événement de calendrier en cours, puis les exporte dans votre dossier SAF via des modèles configurables. Sans événement, il propose les dossiers UE existants ou utilise <b>Non classé</b>.]]></string>
 	<string name="planrecorder_section">PlanRecorder</string>
 	<string name="saf_root_folder">Dossier d\'export (SAF)</string>
@@ -298,7 +298,7 @@
 	<string name="pattern_no_event_hint">Aucun événement sur ce créneau → dossier « Non classé » et nom horodaté, ou suggestion parmi les dossiers UE existants.</string>
 	<string name="destination_folder">Dossier de destination</string>
 	<string name="voice_filter">Filtrer pour les voix</string>
-	<string name="voice_filter_summary">Opus + débit parole + source reconnaissance vocale</string>
+	<string name="voice_filter_summary">Opus + débit parole + reconnaissance vocale + suppression de bruit</string>
 	<string name="tag_id">Identifiant de session (ex. UE323)</string>
 	<string name="identifier_rules">Règles d\'identifiant</string>
 	<string name="identifier_rules_help">Une par ligne. Chaque # = un chiffre. Ex. : UE### (exactement 3 chiffres), UE#+ (1 ou plus), MATH###</string>
@@ -308,7 +308,7 @@
 	<string name="agc_live">AGC live (volume auto)</string>
 	<string name="agc_live_summary">Utilise le contrôle automatique de gain Android si disponible.</string>
 	<string name="normalize_on_export">Normaliser le volume à l\'export</string>
-	<string name="normalize_on_export_summary">Normalise le pic puis réencode dans le même format (Opus/M4A/WAV). En cas d\'échec, garde le fichier d\'origine.</string>
+	<string name="normalize_on_export_summary">Remonte le niveau de la voix (loudness percentile + limiteur, adoucit les clics courts) puis réencode dans le même format (Opus/M4A/WAV). En cas d\'échec, garde le fichier d\'origine.</string>
 	<string name="calendar_event_window_minutes">Fenêtre événement (minutes avant/après)</string>
 	<string name="calendar_event_window_help">La session reste « active » autant de minutes avant le début et après la fin (ex. 15).</string>
 	<string name="course_widget_refresh">Actualiser le calendrier</string>

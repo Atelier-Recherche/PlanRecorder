@@ -16,14 +16,35 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
- * Decodes audio, applies peak normalization (~90% of Int16), and re-encodes
- * preferring the original container/format (Opus / M4A / WAV).
+ * Decodes audio, softens short transients (e.g. keyboard clicks), applies robust
+ * loudness normalization (~90% of Int16 via percentile peak + soft limiter),
+ * and re-encodes preferring the original container/format (Opus / M4A / WAV).
  */
 object AudioPeakNormalizer {
 
-    private const val TARGET_PEAK = 29490 // ~90% of 32767
+    internal const val TARGET_PEAK = 29490 // ~90% of 32767
+
+    /** Percentile of |samples| used as robust peak (ignores sparse click spikes). */
+    private const val ROBUST_PERCENTILE = 0.997
+
+    /** Transient window length in milliseconds. */
+    private const val TRANSIENT_WINDOW_MS = 10
+
+    /**
+     * Attenuate a frame when its RMS or peak exceeds the rolling baseline by this
+     * factor and the peak is brief relative to the window.
+     */
+    private const val TRANSIENT_RMS_RATIO = 4.5f
+    private const val TRANSIENT_PEAK_RATIO = 4f
+
+    /** Gain applied to detected click frames (keep a faint residual). */
+    private const val TRANSIENT_ATTENUATION = 0.12f
+
+    /** EMA coefficient for rolling RMS/peak baseline (higher = slower adapt). */
+    private const val BASELINE_EMA = 0.92f
 
     data class NormalizeResult(
         val file: File,
@@ -31,7 +52,7 @@ object AudioPeakNormalizer {
     )
 
     /**
-     * Peak-normalize [input] while keeping [preferredExtension] when possible.
+     * Normalize [input] while keeping [preferredExtension] when possible.
      * Returns null if normalization fails (caller should export the original).
      */
     fun normalizeKeepingFormat(
@@ -43,39 +64,33 @@ object AudioPeakNormalizer {
         return try {
             val decoded = decodeToPcm(input) ?: return null
             if (decoded.samples.isEmpty()) return null
-            var peak = 1
-            for (s in decoded.samples) {
-                val a = abs(s.toInt())
-                if (a > peak) peak = a
-            }
-            val gain = if (peak >= TARGET_PEAK) 1f else TARGET_PEAK.toFloat() / peak.toFloat()
-            val gained = ShortArray(decoded.samples.size) { i ->
-                (decoded.samples[i] * gain).toInt()
-                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                    .toShort()
-            }
+            val processed = processForNormalize(
+                decoded.samples,
+                decoded.sampleRate,
+                decoded.channelCount,
+            )
             val ext = preferredExtension.lowercase()
             when (ext) {
                 "wav" -> {
                     val out = File(outputDir, "${input.nameWithoutExtension}_norm.wav")
-                    writeWav(out, gained, decoded.sampleRate, decoded.channelCount, 1f)
+                    writeWav(out, processed, decoded.sampleRate, decoded.channelCount, 1f)
                     NormalizeResult(out, "wav")
                 }
                 "m4a", "mp4", "aac" -> {
                     val out = File(outputDir, "${input.nameWithoutExtension}_norm.m4a")
-                    if (encodeAac(gained, decoded.sampleRate, decoded.channelCount, out)) {
+                    if (encodeAac(processed, decoded.sampleRate, decoded.channelCount, out)) {
                         NormalizeResult(out, "m4a")
                     } else null
                 }
                 "opus", "ogg", "oga" -> {
                     val out = File(outputDir, "${input.nameWithoutExtension}_norm.opus")
-                    if (encodeOpus(gained, decoded.sampleRate, decoded.channelCount, out)) {
+                    if (encodeOpus(processed, decoded.sampleRate, decoded.channelCount, out)) {
                         NormalizeResult(out, "opus")
                     } else null
                 }
                 else -> {
                     val out = File(outputDir, "${input.nameWithoutExtension}_norm.wav")
-                    writeWav(out, gained, decoded.sampleRate, decoded.channelCount, 1f)
+                    writeWav(out, processed, decoded.sampleRate, decoded.channelCount, 1f)
                     NormalizeResult(out, "wav")
                 }
             }
@@ -88,6 +103,139 @@ object AudioPeakNormalizer {
     /** @deprecated Prefer [normalizeKeepingFormat]. */
     fun normalizeToWav(input: File, outputDir: File): File? =
         normalizeKeepingFormat(input, outputDir, "wav")?.file
+
+    /**
+     * Softens short transients, then applies percentile-based gain + soft limiter.
+     * Exposed for unit tests (no Android decode/encode).
+     */
+    internal fun processForNormalize(
+        samples: ShortArray,
+        sampleRate: Int,
+        channelCount: Int,
+    ): ShortArray {
+        if (samples.isEmpty()) return samples
+        val channels = channelCount.coerceAtLeast(1)
+        val softened = softenTransients(samples, sampleRate, channels)
+        val robustPeak = robustPeakAbs(softened)
+        val gain = if (robustPeak >= TARGET_PEAK) {
+            1f
+        } else {
+            TARGET_PEAK.toFloat() / robustPeak.toFloat()
+        }
+        return applyGainWithSoftLimiter(softened, gain)
+    }
+
+    /**
+     * Attenuates brief high-energy frames (keyboard-like clicks) relative to a
+     * rolling RMS baseline, without touching sustained speech.
+     */
+    internal fun softenTransients(
+        samples: ShortArray,
+        sampleRate: Int,
+        channelCount: Int,
+    ): ShortArray {
+        val channels = channelCount.coerceAtLeast(1)
+        val frameSamples = ((sampleRate * TRANSIENT_WINDOW_MS) / 1000).coerceAtLeast(1) * channels
+        if (samples.size < frameSamples * 3) return samples.copyOf()
+
+        val out = samples.copyOf()
+        var baselineRms = 0f
+        var baselinePeak = 0f
+        var baselineInitialized = false
+        var i = 0
+        while (i + frameSamples <= out.size) {
+            var sumSq = 0.0
+            var peak = 0
+            var aboveHalfPeak = 0
+            for (j in 0 until frameSamples) {
+                val a = abs(out[i + j].toInt())
+                sumSq += a.toDouble() * a
+                if (a > peak) peak = a
+            }
+            val halfPeak = peak / 2
+            for (j in 0 until frameSamples) {
+                if (abs(out[i + j].toInt()) >= halfPeak) aboveHalfPeak++
+            }
+            val rms = sqrt(sumSq / frameSamples).toFloat()
+            // Fraction of samples near the peak — clicks are sparse within the window.
+            val peakDensity = aboveHalfPeak.toFloat() / frameSamples
+
+            // Sparse impulses (keyboard) have a high peak but modest RMS; use either cue.
+            val loudVsBaseline = baselineInitialized && (
+                (baselineRms > 1f && rms > baselineRms * TRANSIENT_RMS_RATIO) ||
+                    (baselinePeak > 1f && peak > baselinePeak * TRANSIENT_PEAK_RATIO)
+                )
+            val isClick = loudVsBaseline &&
+                peakDensity < 0.35f &&
+                peak > TARGET_PEAK / 4
+
+            if (isClick) {
+                for (j in 0 until frameSamples) {
+                    out[i + j] = (out[i + j] * TRANSIENT_ATTENUATION)
+                        .toInt()
+                        .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                        .toShort()
+                }
+            } else {
+                if (!baselineInitialized) {
+                    baselineRms = rms.coerceAtLeast(1f)
+                    baselinePeak = peak.toFloat().coerceAtLeast(1f)
+                    baselineInitialized = true
+                } else {
+                    baselineRms = BASELINE_EMA * baselineRms + (1f - BASELINE_EMA) * rms
+                    baselinePeak =
+                        BASELINE_EMA * baselinePeak + (1f - BASELINE_EMA) * peak.toFloat()
+                }
+            }
+            i += frameSamples
+        }
+        return out
+    }
+
+    /** Absolute amplitude at [ROBUST_PERCENTILE] via Int16 histogram (O(n), fixed memory). */
+    internal fun robustPeakAbs(samples: ShortArray): Int {
+        if (samples.isEmpty()) return 1
+        val hist = IntArray(Short.MAX_VALUE + 1)
+        var total = 0
+        for (s in samples) {
+            hist[abs(s.toInt())]++
+            total++
+        }
+        if (total == 0) return 1
+        val targetCount = (total * ROBUST_PERCENTILE).toLong().coerceAtLeast(1L)
+        var cumulative = 0L
+        for (amp in hist.indices) {
+            cumulative += hist[amp]
+            if (cumulative >= targetCount) {
+                return amp.coerceAtLeast(1)
+            }
+        }
+        return (hist.size - 1).coerceAtLeast(1)
+    }
+
+    internal fun applyGainWithSoftLimiter(samples: ShortArray, gain: Float): ShortArray {
+        if (samples.isEmpty()) return samples
+        val threshold = TARGET_PEAK.toFloat()
+        val out = ShortArray(samples.size)
+        for (i in samples.indices) {
+            val scaled = samples[i] * gain
+            val limited = softLimit(scaled, threshold)
+            out[i] = limited
+                .toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                .toShort()
+        }
+        return out
+    }
+
+    /** Soft knee above [threshold]: compresses remaining click peaks instead of hard clip. */
+    private fun softLimit(x: Float, threshold: Float): Float {
+        val a = abs(x)
+        if (a <= threshold) return x
+        val over = a - threshold
+        val compressed = threshold + over / (1f + over / threshold)
+        return if (x < 0f) -compressed else compressed
+    }
 
     private data class PcmData(
         val samples: ShortArray,

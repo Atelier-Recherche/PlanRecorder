@@ -170,6 +170,7 @@ class AudioRecordingService : Service() {
     lateinit var analyticsTracker: AnalyticsTracker
 
     private var activeAgc: android.media.audiofx.AutomaticGainControl? = null
+    private var activeNoiseSuppressor: android.media.audiofx.NoiseSuppressor? = null
     private var lastWidgetUpdateTime: Long = 0L
 
     /**
@@ -328,6 +329,7 @@ class AudioRecordingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         releaseAgc()
+        releaseNoiseSuppressor()
         releaseMediaProjection()
         subscriptionJob?.cancel()
         serviceJob.cancel()
@@ -381,6 +383,7 @@ class AudioRecordingService : Service() {
                         recordingFullDataBuffer.reset()
                         recordingMarkersStore.clear()
                         maybeEnableAgc()
+                        maybeEnableNoiseSuppressor()
                         _recordingState.value = _recordingState.value.copy(
                             recordingState = RecordingState.STARTED,
                             amplitudes = intArrayOf(),
@@ -410,6 +413,7 @@ class AudioRecordingService : Service() {
                     }
                     is RecorderEvent.OnStopRecording -> {
                         releaseAgc()
+                        releaseNoiseSuppressor()
                         com.dimowner.audiorecorder.v2.app.CourseRecordingWidget
                             .onRecordingProgress(applicationContext, false, 0L)
                         handleRecordingStopped()
@@ -1248,6 +1252,18 @@ class AudioRecordingService : Service() {
     private fun releaseAgc() {
         AgcHelper.release(activeAgc)
         activeAgc = null
+    }
+
+    private fun maybeEnableNoiseSuppressor() {
+        releaseNoiseSuppressor()
+        if (!prefs.voiceFilterEnabled) return
+        activeNoiseSuppressor =
+            NoiseSuppressorHelper.enable(audioRecorder.audioSessionId())
+    }
+
+    private fun releaseNoiseSuppressor() {
+        NoiseSuppressorHelper.release(activeNoiseSuppressor)
+        activeNoiseSuppressor = null
     }
 
     private fun emitEvent(event: AudioRecordingServiceEvent) {
