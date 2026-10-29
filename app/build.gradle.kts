@@ -19,8 +19,8 @@ android {
         applicationId = "com.planrecorder"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1006
-        versionName = "1.0.6"
+        versionCode = 1007
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -92,6 +92,10 @@ android {
                 "META-INF/INDEX.LIST",
             )
         )
+    }
+    androidResources {
+        // Keep DPDFNet baseline.tflite uncompressed so AssetFileDescriptor mapping works.
+        noCompress += "tflite"
     }
     testOptions {
         unitTests {
@@ -283,6 +287,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.common)
     implementation(libs.element.opusencoder)
+    implementation(libs.tensorflow.lite)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

@@ -17,6 +17,7 @@ package com.dimowner.audiorecorder.v2.audio
 
 import android.media.MediaRecorder
 import com.dimowner.audiorecorder.exception.InvalidOutputFile
+import com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -46,6 +47,7 @@ class M4aRecorderV2Test {
 
     private lateinit var codecRecorder: AacCodecRecorderV2
     private lateinit var mediaRecorder: AudioRecorderV2
+    private lateinit var dpdf: DpdfNoiseReductionController
     private lateinit var outputFile: File
 
     private var failedConfig = ""
@@ -54,6 +56,8 @@ class M4aRecorderV2Test {
     fun setup() {
         codecRecorder = mockk(relaxed = true)
         mediaRecorder = mockk(relaxed = true)
+        dpdf = mockk(relaxed = true)
+        every { dpdf.isEnabled } returns false
         every { codecRecorder.subscribeRecorderEvents() } returns emptyFlow()
         every { mediaRecorder.subscribeRecorderEvents() } returns emptyFlow()
         outputFile = folder.newFile("record.m4a")
@@ -62,7 +66,7 @@ class M4aRecorderV2Test {
     private val micInput = AudioInput.Mic(MediaRecorder.AudioSource.DEFAULT)
 
     private fun CoroutineScope.createRecorder() =
-        M4aRecorderV2(codecRecorder, mediaRecorder, this)
+        M4aRecorderV2(codecRecorder, mediaRecorder, this, dpdf)
 
     private fun M4aRecorderV2.start(bitrate: Int = 192_000, sampleRate: Int = 48000, channelCount: Int = 2) =
         startRecording(outputFile, channelCount, sampleRate, bitrate, 0, micInput)
@@ -96,6 +100,23 @@ class M4aRecorderV2Test {
 
         verify(exactly = 1) { mediaRecorder.startRecording(outputFile, 2, 48000, 192_000, 0, micInput) }
         assertTrue("the service would delete the record on an error event", events.isEmpty())
+        collector.cancel()
+    }
+
+    @Test
+    fun `a failed codec pipeline with DPDF enabled reports error without MediaRecorder fallback`() = runTest {
+        every { dpdf.isEnabled } returns true
+        stubCodecStart(AacCodecRecorderV2.StartResult.PipelineFailed("codec-configure", null))
+        val recorder = createRecorder()
+        val events = mutableListOf<RecorderEvent>()
+        val collector = launch { recorder.subscribeRecorderEvents().collect { events += it } }
+
+        assertFalse(recorder.start())
+        advanceUntilIdle()
+
+        verify(exactly = 0) { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) }
+        assertEquals(1, events.size)
+        assertTrue(events.first() is RecorderEvent.OnError)
         collector.cancel()
     }
 

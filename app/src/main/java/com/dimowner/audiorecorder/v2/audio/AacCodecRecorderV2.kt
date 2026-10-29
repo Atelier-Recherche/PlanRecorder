@@ -132,6 +132,7 @@ internal fun selectAacEncoder(candidates: List<AacEncoderCandidate>, targetBitRa
 @Suppress("TooManyFunctions")
 class AacCodecRecorderV2 @Inject constructor(
     private val coroutineScope: CoroutineScope,
+    private val dpdfNoiseReduction: com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController,
 ) : RecorderV2 {
 
     /** Outcome of the synchronous part of starting, which decides whether a fallback makes sense. */
@@ -403,6 +404,7 @@ class AacCodecRecorderV2 @Inject constructor(
         var maxDurationReached = false
         var failure: Throwable? = null
         val startupDeadline = SystemClock.elapsedRealtime() + STARTUP_TIMEOUT_MS
+        val pcmProcessor = dpdfNoiseReduction.beginSession()
 
         try {
             while (isActive && _isRecording) {
@@ -425,8 +427,11 @@ class AacCodecRecorderV2 @Inject constructor(
                     continue
                 }
                 if (read > 0) {
-                    synchronized(amplitudesBuffer) { amplitudesBuffer.add(calculateAmplitude(pcm, read)) }
-                    framesFed = feedEncoder(encoder, pcm, read, framesFed, frameSize, session)
+                    val toEncode = pcmProcessor?.processInPlace(pcm, read, channelCountConfig) ?: read
+                    synchronized(amplitudesBuffer) {
+                        amplitudesBuffer.add(calculateAmplitude(pcm, toEncode))
+                    }
+                    framesFed = feedEncoder(encoder, pcm, toEncode, framesFed, frameSize, session)
                     durationMills = pcmDurationMills(framesFed, sampleRateConfig)
                     drainEncoder(encoder, session, endOfStream = false)
                 }
@@ -442,6 +447,7 @@ class AacCodecRecorderV2 @Inject constructor(
                 }
                 if (session.muxedFrameCount == 0L && SystemClock.elapsedRealtime() > startupDeadline) {
                     Timber.w("Encoder produced no output within ${STARTUP_TIMEOUT_MS}ms")
+                    dpdfNoiseReduction.endSession()
                     abandonStartup(outputFile)
                     return
                 }
@@ -459,6 +465,7 @@ class AacCodecRecorderV2 @Inject constructor(
             Timber.e(failure, "Recording failed, finishing the file with what was captured")
         }
 
+        dpdfNoiseReduction.endSession()
         finishRecording(session, maxDurationReached, failure, outputFile)
     }
 

@@ -747,6 +747,18 @@ private fun PlanRecorderSettingsSection(
         openDialog = showVoiceFilterInfo,
         message = htmlStringResource(R.string.info_voice_filter_html),
     )
+    SettingsItemCheckBox(
+        uiState.dpdfNoiseReductionEnabled,
+        stringResource(R.string.dpdf_noise_reduction),
+        R.drawable.ic_audiotrack,
+        { onAction(SettingsScreenAction.SetDpdfNoiseReductionEnabled(it)) },
+    )
+    Text(
+        text = stringResource(R.string.dpdf_noise_reduction_summary),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
     OutlinedTextField(
         value = uiState.identifierRulesText,
         onValueChange = { onAction(SettingsScreenAction.SetIdentifierRulesText(it)) },

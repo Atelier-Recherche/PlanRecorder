@@ -43,6 +43,7 @@ class M4aRecorderV2 @Inject constructor(
     private val codecRecorder: AacCodecRecorderV2,
     private val mediaRecorder: AudioRecorderV2,
     private val coroutineScope: CoroutineScope,
+    private val dpdfNoiseReduction: com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController,
 ) : RecorderV2 {
 
     private data class StartParams(
@@ -107,8 +108,15 @@ class M4aRecorderV2 @Inject constructor(
                 false
             }
             is AacCodecRecorderV2.StartResult.PipelineFailed -> {
-                Timber.w("MediaCodec pipeline failed at ${result.stage}, falling back to MediaRecorder")
-                startWithMediaRecorder(params)
+                if (dpdfNoiseReduction.isEnabled) {
+                    // MediaRecorder has no PCM hook for DPDFNet — surface the failure instead.
+                    Timber.e("MediaCodec pipeline failed at ${result.stage}; no MediaRecorder fallback with DPDF on")
+                    emitEvent(RecorderEvent.OnError(RecorderInitException()))
+                    false
+                } else {
+                    Timber.w("MediaCodec pipeline failed at ${result.stage}, falling back to MediaRecorder")
+                    startWithMediaRecorder(params)
+                }
             }
         }
     }
@@ -164,8 +172,13 @@ class M4aRecorderV2 @Inject constructor(
         val params = lastParams ?: return
         if (active !== codecRecorder) return
         coroutineScope.launch {
-            Timber.w("MediaCodec pipeline produced no audio ($reason), falling back to MediaRecorder")
-            startWithMediaRecorder(params)
+            if (dpdfNoiseReduction.isEnabled) {
+                Timber.e("MediaCodec pipeline produced no audio ($reason); no MediaRecorder fallback with DPDF on")
+                emitEvent(RecorderEvent.OnError(RecorderInitException()))
+            } else {
+                Timber.w("MediaCodec pipeline produced no audio ($reason), falling back to MediaRecorder")
+                startWithMediaRecorder(params)
+            }
         }
     }
 

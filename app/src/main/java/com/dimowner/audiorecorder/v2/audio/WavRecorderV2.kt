@@ -41,6 +41,7 @@ private const val MAX_WAV_DATA_BYTES = 2_147_000_000L
 @Singleton
 class WavRecorderV2 @Inject constructor(
     private val coroutineScope: CoroutineScope,
+    private val dpdfNoiseReduction: com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController,
 ) : RecorderV2 {
 
     private var audioRecord: AudioRecord? = null
@@ -192,6 +193,7 @@ class WavRecorderV2 @Inject constructor(
             val bytesPerSecond = sampleRate * channelCount * (bitsPerSample / 8)
             var maxDurationReached = false
             var failed = false
+            val pcmProcessor = dpdfNoiseReduction.beginSession()
 
             try {
                 fos = FileOutputStream(outputFile, true) // append after the placeholder header
@@ -208,8 +210,10 @@ class WavRecorderV2 @Inject constructor(
                     }
                     val readResult = recorder.read(buffer, 0, readChunkSize)
                     if (readResult > 0) {
-                        fos.write(buffer, 0, readResult)
-                        totalBytesWritten += readResult
+                        val toWrite = pcmProcessor?.processInPlace(buffer, readResult, channelCount)
+                            ?: readResult
+                        fos.write(buffer, 0, toWrite)
+                        totalBytesWritten += toWrite
                         // A stop followed by a new start may have landed during the blocking
                         // read: keep the audio in this run's file, but leave the shared state to
                         // the new recording.
@@ -218,8 +222,8 @@ class WavRecorderV2 @Inject constructor(
                         // Calculate duration from bytes written
                         durationMills = (totalBytesWritten * 1000L) / bytesPerSecond
 
-                        // Each read covers ~RECORDING_VISUALIZATION_INTERVAL_NEW ms, so always update amplitude
-                        val amplitude = calculateAmplitude(buffer, readResult)
+                        // Amplitude from the PCM that was actually written (post-denoise).
+                        val amplitude = calculateAmplitude(buffer, toWrite)
                         synchronized(amplitudesBuffer) { amplitudesBuffer.add(amplitude) }
 
                         // Check max duration, and the size the WAV container itself can describe
@@ -265,6 +269,7 @@ class WavRecorderV2 @Inject constructor(
                 } catch (e: IOException) {
                     Timber.e(e, "Error closing output file stream")
                 }
+                dpdfNoiseReduction.endSession()
                 // The hardware is released here, on this background thread, and never from
                 // stopRecording(): AudioRecord.stop() is a synchronous binder call into
                 // audioserver that does not return until the input stream has been torn down,

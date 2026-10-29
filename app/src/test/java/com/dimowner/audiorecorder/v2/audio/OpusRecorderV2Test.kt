@@ -4,6 +4,7 @@
 package com.dimowner.audiorecorder.v2.audio
 
 import android.media.MediaRecorder
+import com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController
 import com.dimowner.audiorecorder.v2.data.model.isSystemOpusEncoderAvailable
 import com.dimowner.audiorecorder.v2.data.model.resetSystemOpusSupportCacheForTests
 import io.mockk.every
@@ -28,6 +29,7 @@ class OpusRecorderV2Test {
 
     private lateinit var mediaRecorder: MediaOpusRecorderV2
     private lateinit var softwareRecorder: SoftwareOpusRecorderV2
+    private lateinit var dpdf: DpdfNoiseReductionController
     private lateinit var outputFile: File
 
     private val micInput = AudioInput.Mic(MediaRecorder.AudioSource.DEFAULT)
@@ -36,6 +38,8 @@ class OpusRecorderV2Test {
     fun setup() {
         mediaRecorder = mockk(relaxed = true)
         softwareRecorder = mockk(relaxed = true)
+        dpdf = mockk(relaxed = true)
+        every { dpdf.isEnabled } returns false
         every { mediaRecorder.subscribeRecorderEvents() } returns emptyFlow()
         every { softwareRecorder.subscribeRecorderEvents() } returns emptyFlow()
         every { mediaRecorder.startRecording(any(), any(), any(), any(), any(), any()) } returns true
@@ -52,7 +56,7 @@ class OpusRecorderV2Test {
     }
 
     private fun CoroutineScope.createRecorder() =
-        OpusRecorderV2(mediaRecorder, softwareRecorder, this)
+        OpusRecorderV2(mediaRecorder, softwareRecorder, this, dpdf)
 
     @Test
     fun `uses MediaRecorder when system Opus encoder is available`() = runTest {
@@ -74,6 +78,24 @@ class OpusRecorderV2Test {
     @Test
     fun `uses software encoder when system Opus encoder is missing`() = runTest {
         every { isSystemOpusEncoderAvailable() } returns false
+        val recorder = createRecorder()
+
+        assertTrue(
+            recorder.startRecording(outputFile, 1, 16_000, 32_000, 0, micInput)
+        )
+
+        verify(exactly = 1) {
+            softwareRecorder.startRecording(outputFile, 1, 16_000, 32_000, 0, micInput)
+        }
+        verify(exactly = 0) {
+            mediaRecorder.startRecording(any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `forces software encoder when DPDF noise reduction is enabled`() = runTest {
+        every { isSystemOpusEncoderAvailable() } returns true
+        every { dpdf.isEnabled } returns true
         val recorder = createRecorder()
 
         assertTrue(

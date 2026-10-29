@@ -17,10 +17,11 @@ Fork d’[AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) pour 
 3. **Patterns** dossier / fichier avec balises cliquables (`[id]`, `[ue]`, date/heure…)
 4. **Export SAF** vers un dossier racine choisi une fois
 5. **Opus** + préréglage **Filtrer pour les voix**
-6. **Identifiants personnalisés** (`UE:1+`, `MATH:3`…) + liste des IDs déjà vus
-7. **AGC live** et **normalisation peak → WAV** à l’export (options)
-8. **Widget « session en cours »** et **rappel X min** avant le créneau
-9. **Marqueurs** pendant l’enregistrement → fichier Markdown style Obsidian  
+6. **Réduction de bruit IA (DPDFNet baseline)** optionnelle, 16 kHz mono (exclusive du filtre voix)
+7. **Identifiants personnalisés** (`UE:1+`, `MATH:3`…) + liste des IDs déjà vus
+8. **AGC live** et **normalisation** à l’export (options)
+9. **Widget « session en cours »** et **rappel X min** avant le créneau
+10. **Marqueurs** pendant l’enregistrement → fichier Markdown style Obsidian  
    `[[fichier.opus#t=508|08:28]] debut de session`
 
 ## Matching intelligent des dossiers
@@ -59,7 +60,7 @@ adb install -r app/build/outputs/apk/debugConfig/debug/app-debugConfig-debug.apk
 2. Choisir le **dossier d’export** (SAF)
 3. Choisir le **calendrier** (ex. DAVx⁵)
 4. Ajuster patterns / règles d’identifiant
-5. Optionnel : Filtrer pour les voix, AGC, normalisation, rappel
+5. Optionnel : Filtrer pour les voix **ou** réduction de bruit IA (DPDFNet), AGC, normalisation, rappel
 6. Accorder **Calendrier** (+ notifications pour les rappels)
 7. Enregistrer pendant un événement, valider le dialogue de fin
 
@@ -90,4 +91,5 @@ Les packages Java restent `com.dimowner.audiorecorder…` pour faciliter les mer
 ## Crédits
 
 - [AudioRecorder](https://github.com/Dimowner/AudioRecorder) — Dmytro Ponomarenko (Apache 2.0)
+- [DPDFNet](https://github.com/ceva-ip/DPDFNet) / [Ceva-IP models](https://huggingface.co/Ceva-IP/DPDFNet) — réduction de bruit live (Apache 2.0) ; détails dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - Icône [mic-signal](https://lucide.dev/icons/mic-signal) — [Lucide Icons](https://lucide.dev) (ISC)

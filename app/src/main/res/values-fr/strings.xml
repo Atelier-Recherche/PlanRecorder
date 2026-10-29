@@ -299,6 +299,8 @@
 	<string name="destination_folder">Dossier de destination</string>
 	<string name="voice_filter">Filtrer pour les voix</string>
 	<string name="voice_filter_summary">Opus + débit parole + reconnaissance vocale + suppression de bruit</string>
+	<string name="dpdf_noise_reduction">Réduction de bruit IA (DPDFNet)</string>
+	<string name="dpdf_noise_reduction_summary">Débruitage live DPDFNet baseline en 16 kHz mono. Incompatible avec Filtrer pour les voix.</string>
 	<string name="tag_id">Identifiant de session (ex. UE323)</string>
 	<string name="identifier_rules">Règles d\'identifiant</string>
 	<string name="identifier_rules_help">Une par ligne. Chaque # = un chiffre. Ex. : UE### (exactement 3 chiffres), UE#+ (1 ou plus), MATH###</string>

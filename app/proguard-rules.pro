@@ -33,6 +33,10 @@
     native <methods>;
 }
 
+# TensorFlow Lite (DPDFNet)
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn org.tensorflow.lite.**
+
 -keepattributes SourceFile,LineNumberTable        # Keep file names and line numbers.
 -keep public class * extends java.lang.Exception  # Optional: Keep custom exceptions.
 

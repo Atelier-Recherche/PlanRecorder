@@ -25,6 +25,7 @@ class OpusRecorderV2 @Inject constructor(
     private val mediaRecorder: MediaOpusRecorderV2,
     private val softwareRecorder: SoftwareOpusRecorderV2,
     private val coroutineScope: CoroutineScope,
+    private val dpdfNoiseReduction: com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController,
 ) : RecorderV2 {
 
     @Volatile private var active: RecorderV2? = null
@@ -55,7 +56,8 @@ class OpusRecorderV2 @Inject constructor(
         maxRecordingDurationMills: Int,
         audioInput: AudioInput,
     ): Boolean {
-        val useSystem = isSystemOpusEncoderAvailable()
+        // DPDFNet needs PCM access — always use the software AudioRecord path when enabled.
+        val useSystem = isSystemOpusEncoderAvailable() && !dpdfNoiseReduction.isEnabled
         active = if (useSystem) mediaRecorder else softwareRecorder
         Timber.d(
             "OpusRecorderV2 starting with %s backend",

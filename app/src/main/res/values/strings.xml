@@ -322,6 +322,8 @@
 	<string name="destination_folder">Destination folder</string>
 	<string name="voice_filter">Filter for voices</string>
 	<string name="voice_filter_summary">Opus + speech bitrate + voice recognition + noise suppression</string>
+	<string name="dpdf_noise_reduction">AI noise reduction (DPDFNet)</string>
+	<string name="dpdf_noise_reduction_summary">Live DPDFNet baseline denoise at 16 kHz mono. Cannot be combined with Filter for voices.</string>
 	<string name="tag_id">Session id (e.g. UE323)</string>
 	<string name="identifier_rules">Identifier rules</string>
 	<string name="identifier_rules_help">One per line. Each # = one digit. Examples: UE### (exactly 3 digits), UE#+ (1 or more), MATH###</string>

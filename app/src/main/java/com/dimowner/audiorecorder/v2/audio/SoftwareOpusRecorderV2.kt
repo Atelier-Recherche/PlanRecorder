@@ -35,6 +35,7 @@ import javax.inject.Singleton
 @Singleton
 class SoftwareOpusRecorderV2 @Inject constructor(
     private val coroutineScope: CoroutineScope,
+    private val dpdfNoiseReduction: com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController,
 ) : RecorderV2 {
 
     private var audioRecord: AudioRecord? = null
@@ -192,6 +193,7 @@ class SoftwareOpusRecorderV2 @Inject constructor(
             var maxDurationReached = false
             var failed = false
             var capturedAudio = false
+            val pcmProcessor = dpdfNoiseReduction.beginSession()
 
             try {
                 while (isActive && _isRecording && currentRun === run) {
@@ -207,7 +209,9 @@ class SoftwareOpusRecorderV2 @Inject constructor(
                     val readResult = recorder.read(buffer, 0, readChunkSize)
                     if (readResult > 0) {
                         if (currentRun !== run) break
-                        val mono = pcmBytesToMonoShorts(buffer, readResult, captureChannels)
+                        val processed = pcmProcessor?.processInPlace(buffer, readResult, captureChannels)
+                            ?: readResult
+                        val mono = pcmBytesToMonoShorts(buffer, processed, captureChannels)
                         if (mono.isNotEmpty()) {
                             val writeResult = encoder.encode(mono, mono.size)
                             if (writeResult < 0) {
@@ -219,7 +223,7 @@ class SoftwareOpusRecorderV2 @Inject constructor(
                             totalMonoSamples += mono.size
                             durationMills = totalMonoSamples * 1000L / sampleRate
                         }
-                        val amplitude = calculateAmplitude(buffer, readResult)
+                        val amplitude = calculateAmplitude(buffer, processed)
                         synchronized(amplitudesBuffer) { amplitudesBuffer.add(amplitude) }
 
                         if (maxRecordingDurationMills > 0 &&
@@ -241,6 +245,7 @@ class SoftwareOpusRecorderV2 @Inject constructor(
                 Timber.e(e, "Software Opus recording loop failed")
                 failed = true
             } finally {
+                dpdfNoiseReduction.endSession()
                 if (currentRun === run) {
                     _isRecording = false
                     _isPaused = false

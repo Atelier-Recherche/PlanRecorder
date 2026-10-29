@@ -169,6 +169,9 @@ class AudioRecordingService : Service() {
     @Inject
     lateinit var analyticsTracker: AnalyticsTracker
 
+    @Inject
+    lateinit var dpdfNoiseReduction: com.dimowner.audiorecorder.v2.audio.dpdf.DpdfNoiseReductionController
+
     private var activeAgc: android.media.audiofx.AutomaticGainControl? = null
     private var activeNoiseSuppressor: android.media.audiofx.NoiseSuppressor? = null
     private var lastWidgetUpdateTime: Long = 0L
@@ -330,6 +333,7 @@ class AudioRecordingService : Service() {
         super.onDestroy()
         releaseAgc()
         releaseNoiseSuppressor()
+        dpdfNoiseReduction.release()
         releaseMediaProjection()
         subscriptionJob?.cancel()
         serviceJob.cancel()
@@ -1256,7 +1260,8 @@ class AudioRecordingService : Service() {
 
     private fun maybeEnableNoiseSuppressor() {
         releaseNoiseSuppressor()
-        if (!prefs.voiceFilterEnabled) return
+        // DPDFNet already denoises PCM; stacking Android NoiseSuppressor is redundant / costly.
+        if (!prefs.voiceFilterEnabled || prefs.dpdfNoiseReductionEnabled) return
         activeNoiseSuppressor =
             NoiseSuppressorHelper.enable(audioRecorder.audioSessionId())
     }

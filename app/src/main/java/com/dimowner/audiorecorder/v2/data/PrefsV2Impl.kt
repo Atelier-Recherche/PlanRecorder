@@ -363,6 +363,14 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var dpdfNoiseReductionEnabled: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_DPDF_NOISE_REDUCTION_ENABLED, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_DPDF_NOISE_REDUCTION_ENABLED, value)
+            }
+        }
+
     override var selectedCalendarId: Long
         get() = sharedPreferences.getLong(PREF_KEY_SELECTED_CALENDAR_ID, PrefsV2.NO_CALENDAR_FILTER)
         set(value) {
@@ -487,6 +495,7 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_FOLDER_PATTERN = "pref_key_folder_pattern"
         private const val PREF_KEY_FILE_PATTERN = "pref_key_file_pattern"
         private const val PREF_KEY_VOICE_FILTER_ENABLED = "pref_key_voice_filter_enabled"
+        private const val PREF_KEY_DPDF_NOISE_REDUCTION_ENABLED = "pref_key_dpdf_noise_reduction_enabled"
         private const val PREF_KEY_SELECTED_CALENDAR_ID = "pref_key_selected_calendar_id"
         private const val PREF_KEY_IDENTIFIER_RULES = "pref_key_identifier_rules"
         private const val PREF_KEY_SEEN_IDENTIFIERS = "pref_key_seen_identifiers"

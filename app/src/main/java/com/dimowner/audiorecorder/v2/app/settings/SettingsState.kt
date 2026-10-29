@@ -59,6 +59,7 @@ data class SettingsState(
     val filePattern: String = "",
     val patternPreview: String = "",
     val voiceFilterEnabled: Boolean = false,
+    val dpdfNoiseReductionEnabled: Boolean = false,
     val selectedCalendarId: Long = -1L,
     val availableCalendars: List<CalendarOptionItem> = emptyList(),
     val identifierRulesText: String = "UE#+",

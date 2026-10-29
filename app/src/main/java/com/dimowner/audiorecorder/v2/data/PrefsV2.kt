@@ -105,8 +105,15 @@ interface PrefsV2 {
     /**
      * When true, recording uses Opus + speech bitrate + [AudioSource.VOICE_RECOGNITION].
      * Previous format settings are restored when disabled.
+     * Mutually exclusive with [dpdfNoiseReductionEnabled].
      */
     var voiceFilterEnabled: Boolean
+
+    /**
+     * When true, live DPDFNet baseline (TFLite) denoising runs on the PCM path at 16 kHz mono.
+     * Mutually exclusive with [voiceFilterEnabled].
+     */
+    var dpdfNoiseReductionEnabled: Boolean
 
     /**
      * Selected Android calendar id for event lookup, or [NO_CALENDAR_FILTER] for all calendars.

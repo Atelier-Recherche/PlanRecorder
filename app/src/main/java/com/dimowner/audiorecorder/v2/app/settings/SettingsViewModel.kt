@@ -84,6 +84,10 @@ internal class SettingsViewModel @Inject constructor(
     private var voiceFilterBackupChannelCount: ChannelCount? = null
     private var voiceFilterBackupAudioSource: AudioSource? = null
 
+    private var dpdfBackupFormat: RecordingFormat? = null
+    private var dpdfBackupSampleRate: SampleRate? = null
+    private var dpdfBackupChannelCount: ChannelCount? = null
+
     private val decimalFormat: DecimalFormat
 
     private val formatsStrings = appContext.resources.getStringArray(R.array.formats2)
@@ -172,6 +176,7 @@ internal class SettingsViewModel @Inject constructor(
             filePattern = prefs.filePattern,
             patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
             voiceFilterEnabled = prefs.voiceFilterEnabled,
+            dpdfNoiseReductionEnabled = prefs.dpdfNoiseReductionEnabled,
             selectedCalendarId = prefs.selectedCalendarId,
             availableCalendars = emptyList(),
             identifierRulesText = prefs.identifierRulesText,
@@ -524,6 +529,9 @@ internal class SettingsViewModel @Inject constructor(
     fun setVoiceFilterEnabled(enabled: Boolean) {
         if (enabled == prefs.voiceFilterEnabled) return
         if (enabled) {
+            if (prefs.dpdfNoiseReductionEnabled) {
+                setDpdfNoiseReductionEnabled(false)
+            }
             voiceFilterBackupFormat = prefs.settingRecordingFormat
             voiceFilterBackupBitRate = prefs.settingBitrate
             voiceFilterBackupSampleRate = prefs.settingSampleRate
@@ -546,6 +554,36 @@ internal class SettingsViewModel @Inject constructor(
             voiceFilterBackupAudioSource?.let { setAudioSource(it) }
         }
         _state.value = _state.value.copy(voiceFilterEnabled = enabled)
+    }
+
+    fun setDpdfNoiseReductionEnabled(enabled: Boolean) {
+        if (enabled == prefs.dpdfNoiseReductionEnabled) return
+        if (enabled) {
+            if (prefs.voiceFilterEnabled) {
+                setVoiceFilterEnabled(false)
+            }
+            dpdfBackupFormat = prefs.settingRecordingFormat
+            dpdfBackupSampleRate = prefs.settingSampleRate
+            dpdfBackupChannelCount = prefs.settingChannelCount
+            prefs.dpdfNoiseReductionEnabled = true
+            // DPDF needs an AudioRecord PCM path at 16 kHz mono (not MediaRecorder-only 3GP).
+            if (prefs.settingRecordingFormat == RecordingFormat.ThreeGp) {
+                val fallback = if (RecordingFormat.Opus in RecordingFormat.availableFormats()) {
+                    RecordingFormat.Opus
+                } else {
+                    RecordingFormat.Wav
+                }
+                selectRecordingFormat(fallback)
+            }
+            selectSampleRate(SampleRate.SR16000)
+            selectChannelCount(ChannelCount.Mono)
+        } else {
+            prefs.dpdfNoiseReductionEnabled = false
+            dpdfBackupFormat?.let { selectRecordingFormat(it) }
+            dpdfBackupSampleRate?.let { selectSampleRate(it) }
+            dpdfBackupChannelCount?.let { selectChannelCount(it) }
+        }
+        _state.value = _state.value.copy(dpdfNoiseReductionEnabled = enabled)
     }
 
     fun setSelectedCalendarId(calendarId: Long) {
@@ -651,6 +689,8 @@ internal class SettingsViewModel @Inject constructor(
             is SettingsScreenAction.SetFolderPattern -> setFolderPattern(action.pattern)
             is SettingsScreenAction.SetFilePattern -> setFilePattern(action.pattern)
             is SettingsScreenAction.SetVoiceFilterEnabled -> setVoiceFilterEnabled(action.enabled)
+            is SettingsScreenAction.SetDpdfNoiseReductionEnabled ->
+                setDpdfNoiseReductionEnabled(action.enabled)
             is SettingsScreenAction.SetSelectedCalendarId -> setSelectedCalendarId(action.calendarId)
             is SettingsScreenAction.InsertPatternTag -> insertPatternTag(action.target, action.tag)
             SettingsScreenAction.RefreshCalendars -> refreshCalendars()
@@ -732,6 +772,7 @@ internal sealed class SettingsScreenAction {
     data class SetFolderPattern(val pattern: String) : SettingsScreenAction()
     data class SetFilePattern(val pattern: String) : SettingsScreenAction()
     data class SetVoiceFilterEnabled(val enabled: Boolean) : SettingsScreenAction()
+    data class SetDpdfNoiseReductionEnabled(val enabled: Boolean) : SettingsScreenAction()
     data class SetSelectedCalendarId(val calendarId: Long) : SettingsScreenAction()
     data class InsertPatternTag(val target: PatternField, val tag: String) : SettingsScreenAction()
     data object RefreshCalendars : SettingsScreenAction()
