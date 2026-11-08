@@ -60,6 +60,11 @@ data class SettingsState(
     val patternPreview: String = "",
     val voiceFilterEnabled: Boolean = false,
     val dpdfNoiseReductionEnabled: Boolean = false,
+    val dpdfPostProcessEnabled: Boolean = false,
+    /** 0..100 — voice clarity after DPDF (dry mix + presence). */
+    val dpdfClarity: Int = 40,
+    /** Attenuation cap in dB; ≥80 = unlimited. */
+    val dpdfAttnLimitDb: Int = 100,
     val selectedCalendarId: Long = -1L,
     val availableCalendars: List<CalendarOptionItem> = emptyList(),
     val identifierRulesText: String = "UE#+",

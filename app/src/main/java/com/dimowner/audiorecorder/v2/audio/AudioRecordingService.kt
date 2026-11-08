@@ -1051,12 +1051,21 @@ class AudioRecordingService : Service() {
     }
 
     private fun decodeRecord(recordId: Long, path: String, durationMills: Long) {
-        DecodeService.startNotificationV2(
-            applicationContext,
-            recordId,
-            path,
-            durationMills
-        )
+        if (prefs.dpdfPostProcessEnabled && !prefs.dpdfNoiseReductionEnabled) {
+            com.dimowner.audiorecorder.v2.audio.dpdf.DpdfPostProcessService.start(
+                applicationContext,
+                recordId,
+                path,
+                durationMills,
+            )
+        } else {
+            DecodeService.startNotificationV2(
+                applicationContext,
+                recordId,
+                path,
+                durationMills
+            )
+        }
     }
 
     private fun startNotificationUpdates() {

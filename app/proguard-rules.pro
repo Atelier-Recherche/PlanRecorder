@@ -37,6 +37,11 @@
 -keep class org.tensorflow.lite.** { *; }
 -dontwarn org.tensorflow.lite.**
 
+# JTransforms (FFT for DPDFNet STFT)
+-keep class org.jtransforms.** { *; }
+-dontwarn org.jtransforms.**
+-dontwarn edu.emory.mathcs.**
+
 -keepattributes SourceFile,LineNumberTable        # Keep file names and line numbers.
 -keep public class * extends java.lang.Exception  # Optional: Keep custom exceptions.
 

@@ -24,20 +24,39 @@ class RealFftTest {
     @Test
     fun `rfft then irfft reconstructs a sine within tolerance`() {
         val n = 320
+        val fft = RealFft(n)
         val input = FloatArray(n) { i ->
             (0.5 * sin(2.0 * Math.PI * 5 * i / n) + 0.25 * cos(2.0 * Math.PI * 11 * i / n)).toFloat()
         }
         val bins = n / 2 + 1
         val re = FloatArray(bins)
         val im = FloatArray(bins)
-        RealFft.rfft(input, re, im)
+        fft.rfft(input, re, im)
         val out = FloatArray(n)
-        RealFft.irfft(re, im, n, out)
+        fft.irfft(re, im, out)
         var maxErr = 0f
         for (i in 0 until n) {
             maxErr = maxOf(maxErr, abs(input[i] - out[i]))
         }
         assertTrue("max reconstruction error=$maxErr", maxErr < 1e-3f)
+    }
+
+    @Test
+    fun `fast fft stays under a few ms for 200 hops on the JVM`() {
+        val n = 320
+        val fft = RealFft(n)
+        val input = FloatArray(n) { i -> sin(2.0 * Math.PI * i / n).toFloat() }
+        val re = FloatArray(n / 2 + 1)
+        val im = FloatArray(n / 2 + 1)
+        val out = FloatArray(n)
+        val t0 = System.nanoTime()
+        repeat(200) {
+            fft.rfft(input, re, im)
+            fft.irfft(re, im, out)
+        }
+        val ms = (System.nanoTime() - t0) / 1e6
+        // Direct DFT used to take hundreds of ms for this; fast path should be << 50 ms on CI.
+        assertTrue("200 rfft+irfft took ${ms}ms", ms < 200.0)
     }
 
     @Test

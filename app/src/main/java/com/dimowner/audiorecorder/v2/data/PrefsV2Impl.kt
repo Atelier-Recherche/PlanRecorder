@@ -371,6 +371,32 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
             }
         }
 
+    override var dpdfPostProcessEnabled: Boolean
+        get() = sharedPreferences.getBoolean(PREF_KEY_DPDF_POST_PROCESS_ENABLED, false)
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(PREF_KEY_DPDF_POST_PROCESS_ENABLED, value)
+            }
+        }
+
+    override var dpdfClarity: Int
+        get() = sharedPreferences.getInt(PREF_KEY_DPDF_CLARITY, DEFAULT_DPDF_CLARITY)
+            .coerceIn(0, 100)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_DPDF_CLARITY, value.coerceIn(0, 100))
+            }
+        }
+
+    override var dpdfAttnLimitDb: Int
+        get() = sharedPreferences.getInt(PREF_KEY_DPDF_ATTN_LIMIT_DB, DEFAULT_DPDF_ATTN_LIMIT_DB)
+            .coerceIn(0, 100)
+        set(value) {
+            sharedPreferences.edit {
+                putInt(PREF_KEY_DPDF_ATTN_LIMIT_DB, value.coerceIn(0, 100))
+            }
+        }
+
     override var selectedCalendarId: Long
         get() = sharedPreferences.getLong(PREF_KEY_SELECTED_CALENDAR_ID, PrefsV2.NO_CALENDAR_FILTER)
         set(value) {
@@ -496,6 +522,12 @@ class PrefsV2Impl @Inject internal constructor(@ApplicationContext context: Cont
         private const val PREF_KEY_FILE_PATTERN = "pref_key_file_pattern"
         private const val PREF_KEY_VOICE_FILTER_ENABLED = "pref_key_voice_filter_enabled"
         private const val PREF_KEY_DPDF_NOISE_REDUCTION_ENABLED = "pref_key_dpdf_noise_reduction_enabled"
+        private const val PREF_KEY_DPDF_POST_PROCESS_ENABLED = "pref_key_dpdf_post_process_enabled"
+        private const val PREF_KEY_DPDF_CLARITY = "pref_key_dpdf_clarity"
+        private const val PREF_KEY_DPDF_ATTN_LIMIT_DB = "pref_key_dpdf_attn_limit_db"
+        /** Default leans slightly clear — full wet often sounds dull on phone mics. */
+        private const val DEFAULT_DPDF_CLARITY = 40
+        private const val DEFAULT_DPDF_ATTN_LIMIT_DB = 100
         private const val PREF_KEY_SELECTED_CALENDAR_ID = "pref_key_selected_calendar_id"
         private const val PREF_KEY_IDENTIFIER_RULES = "pref_key_identifier_rules"
         private const val PREF_KEY_SEEN_IDENTIFIERS = "pref_key_seen_identifiers"

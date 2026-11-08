@@ -19,8 +19,8 @@ android {
         applicationId = "com.planrecorder"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1007
-        versionName = "1.0.7"
+        versionCode = 1009
+        versionName = "1.0.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -288,6 +288,7 @@ dependencies {
     implementation(libs.androidx.media3.common)
     implementation(libs.element.opusencoder)
     implementation(libs.tensorflow.lite)
+    implementation(libs.jtransforms)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))

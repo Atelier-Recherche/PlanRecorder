@@ -164,6 +164,10 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <service
+            android:name=".v2.audio.dpdf.DpdfPostProcessService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <service
             android:name=".app.moverecords.MoveRecordsService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

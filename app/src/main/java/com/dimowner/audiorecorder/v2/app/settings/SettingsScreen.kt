@@ -47,6 +47,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
@@ -55,6 +56,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -759,6 +761,84 @@ private fun PlanRecorderSettingsSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
     )
+    SettingsItemCheckBox(
+        uiState.dpdfPostProcessEnabled,
+        stringResource(R.string.dpdf_post_process),
+        R.drawable.ic_audiotrack,
+        { onAction(SettingsScreenAction.SetDpdfPostProcessEnabled(it)) },
+    )
+    Text(
+        text = stringResource(R.string.dpdf_post_process_summary),
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+    )
+    if (uiState.dpdfNoiseReductionEnabled || uiState.dpdfPostProcessEnabled) {
+        Text(
+            text = stringResource(R.string.dpdf_clarity),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = uiState.dpdfClarity <= 20,
+                onClick = { onAction(SettingsScreenAction.SetDpdfClarity(0)) },
+                label = { Text(stringResource(R.string.dpdf_clarity_standard)) },
+            )
+            FilterChip(
+                selected = uiState.dpdfClarity in 21..55,
+                onClick = { onAction(SettingsScreenAction.SetDpdfClarity(40)) },
+                label = { Text(stringResource(R.string.dpdf_clarity_clear)) },
+            )
+            FilterChip(
+                selected = uiState.dpdfClarity >= 56,
+                onClick = { onAction(SettingsScreenAction.SetDpdfClarity(70)) },
+                label = { Text(stringResource(R.string.dpdf_clarity_brighter)) },
+            )
+        }
+        Text(
+            text = stringResource(R.string.dpdf_clarity_summary),
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        )
+        Text(
+            text = stringResource(R.string.dpdf_strength),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = uiState.dpdfAttnLimitDb <= 18,
+                onClick = { onAction(SettingsScreenAction.SetDpdfAttnLimitDb(12)) },
+                label = { Text(stringResource(R.string.dpdf_strength_soft)) },
+            )
+            FilterChip(
+                selected = uiState.dpdfAttnLimitDb in 19..50,
+                onClick = { onAction(SettingsScreenAction.SetDpdfAttnLimitDb(24)) },
+                label = { Text(stringResource(R.string.dpdf_strength_balanced)) },
+            )
+            FilterChip(
+                selected = uiState.dpdfAttnLimitDb >= 51,
+                onClick = { onAction(SettingsScreenAction.SetDpdfAttnLimitDb(100)) },
+                label = { Text(stringResource(R.string.dpdf_strength_max)) },
+            )
+        }
+    }
     OutlinedTextField(
         value = uiState.identifierRulesText,
         onValueChange = { onAction(SettingsScreenAction.SetIdentifierRulesText(it)) },

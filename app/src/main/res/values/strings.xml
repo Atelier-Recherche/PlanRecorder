@@ -322,8 +322,20 @@
 	<string name="destination_folder">Destination folder</string>
 	<string name="voice_filter">Filter for voices</string>
 	<string name="voice_filter_summary">Opus + speech bitrate + voice recognition + noise suppression</string>
-	<string name="dpdf_noise_reduction">AI noise reduction (DPDFNet)</string>
-	<string name="dpdf_noise_reduction_summary">Live DPDFNet baseline denoise at 16 kHz mono. Cannot be combined with Filter for voices.</string>
+	<string name="dpdf_noise_reduction">AI noise reduction (DPDFNet) — live</string>
+	<string name="dpdf_noise_reduction_summary">During recording: Opus 32 kbps · 16 kHz mono · mic · DPDFNet. Exclusive with post-process and Filter for voices (do not stack Voice recognition DSP).</string>
+	<string name="dpdf_post_process">AI noise reduction (DPDFNet) — after stop</string>
+	<string name="dpdf_post_process_summary">Enhances the file once recording stops, then builds the waveform. Keeps your format/bitrate. Exclusive with live DPDF. Uses the clarity/strength below.</string>
+	<string name="dpdf_post_processing">Denoising audio&#8230;</string>
+	<string name="dpdf_clarity">Voice clarity</string>
+	<string name="dpdf_clarity_summary">Higher = less muffled (mixes a bit of raw mic + treble). Lower = stronger denoise, duller voice.</string>
+	<string name="dpdf_clarity_standard">Standard</string>
+	<string name="dpdf_clarity_clear">Clear</string>
+	<string name="dpdf_clarity_brighter">Brighter</string>
+	<string name="dpdf_strength">Denoise strength</string>
+	<string name="dpdf_strength_soft">Soft</string>
+	<string name="dpdf_strength_balanced">Balanced</string>
+	<string name="dpdf_strength_max">Max</string>
 	<string name="tag_id">Session id (e.g. UE323)</string>
 	<string name="identifier_rules">Identifier rules</string>
 	<string name="identifier_rules_help">One per line. Each # = one digit. Examples: UE### (exactly 3 digits), UE#+ (1 or more), MATH###</string>

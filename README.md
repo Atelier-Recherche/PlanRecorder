@@ -1,6 +1,43 @@
-# PlanRecorder
+<div align="center" id="head">
 
-[English README](README.en.md)
+
+<table>
+<tr>
+<td><img src="readme-media/logo_planrecorder.webp" alt="PlanRecorder" width="140" /></td>
+<td align="left">
+<h1 style="margin:0">PlanRecorder</h1>
+<p style="margin:0.25em 0 0"><strong>Notes audio classées par événement</strong><br/>Android · calendrier · Opus · Obsidian</p>
+</td>
+</tr>
+</table>
+
+<a href="https://atelier.atechnologie.fr/" title="l'Atelier – Association de fabrication de livres et d'outils de recherche"><img src="https://raw.githubusercontent.com/Atelier-Recherche/.github/main/profile/logo.jpg" alt="l'Atelier" width="200" /></a>  
+<sub>Développé par <a href="https://atelier.atechnologie.fr/">l'Atelier</a> — fabrication de livres et outils de recherche (EHESS)</sub>
+
+<p>
+🇫🇷 <a href="README.md"><b>Français</b></a> ·
+🇬🇧 <a href="README.en.md">English</a> ·
+🇩🇪 <a href="README.de.md">Deutsch</a> ·
+🇪🇸 <a href="README.es.md">Español</a>
+</p>
+
+<p>
+<a href="https://atelier.atechnologie.fr/"><img src="https://img.shields.io/badge/🌐_l'Atelier-atelier.atechnologie.fr-2d5016?style=for-the-badge" alt="Site l'Atelier" /></a>
+<a href="https://github.com/Atelier-Recherche/PlanRecorder"><img src="https://img.shields.io/badge/📦_Dépôt-GitHub-181717?style=for-the-badge&logo=github" alt="Dépôt GitHub" /></a>
+</p>
+
+</div>
+
+---
+
+## 📸 Aperçu
+
+| Enregistrement | Réglages |
+| :---: | :---: |
+| <img src="readme-media/screen1.jpg" alt="Enregistrement" width="400" /> | <img src="readme-media/screen2.jpg" alt="Réglages" width="400" /> |
+
+---
+## 📖 À propos
 
 Fork d’[AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) pour **prendre des notes audio classées par événement de calendrier** (DAVx⁵ / calendrier Android).
 
@@ -10,7 +47,9 @@ Fork d’[AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) pour 
 | Licence | Apache 2.0 (base AudioRecorder) |
 | Icône | [Lucide mic-signal](https://lucide.dev/icons/mic-signal) (ISC) — merci à Lucide |
 
-## Fonctionnalités
+---
+
+## ✨ Fonctionnalités
 
 1. **Événement en cours** via `CalendarContract` au démarrage de l’enregistrement
 2. **Calendrier source** configurable (ou tous les calendriers)
@@ -22,18 +61,24 @@ Fork d’[AudioRecorder](https://github.com/Dimowner/AudioRecorder) (v2.5) pour 
 8. **AGC live** et **normalisation** à l’export (options)
 9. **Widget « session en cours »** et **rappel X min** avant le créneau
 10. **Marqueurs** pendant l’enregistrement → fichier Markdown style Obsidian  
-   `[[fichier.opus#t=508|08:28]] debut de session`
+    `[[fichier.opus#t=508|08:28]] debut de session`
 
-## Matching intelligent des dossiers
+---
+
+## 🧠 Matching intelligent des dossiers
 
 Si le pattern produit `UE581 session croquette` mais qu’existe déjà `UE581 session croquette et tech`, PlanRecorder **réutilise le dossier existant** (et l’inverse), tant que l’identifiant correspond.
 
-## Sans événement / ambiguïté
+---
+
+## ❓ Sans événement / ambiguïté
 
 - suggestions parmi les dossiers ID déjà présents + IDs mémorisés
 - préremplissage possible, modifiable dans le dialogue de fin
 
-## Balises de pattern
+---
+
+## 🏷 Balises de pattern
 
 | Tag | Signification |
 |-----|----------------|
@@ -47,14 +92,18 @@ Si le pattern produit `UE581 session croquette` mais qu’existe déjà `UE581 s
 
 Defaults : dossier `[calendar]/[id] [title_rest]` · fichier `[NN]-T[HH][MM][SS]-[dd][mm][yy]-[id]`
 
-## Build / install
+---
+
+## 🛠 Build / install
 
 ```bash
 ./gradlew :app:assembleDebugConfigDebug
 adb install -r app/build/outputs/apk/debugConfig/debug/app-debugConfig-debug.apk
 ```
 
-## Première utilisation
+---
+
+## ▶️ Première utilisation
 
 1. **Settings → PlanRecorder**
 2. Choisir le **dossier d’export** (SAF)
@@ -64,7 +113,9 @@ adb install -r app/build/outputs/apk/debugConfig/debug/app-debugConfig-debug.apk
 6. Accorder **Calendrier** (+ notifications pour les rappels)
 7. Enregistrer pendant un événement, valider le dialogue de fin
 
-## Publier sur un nouveau dépôt GitHub
+---
+
+## 📦 Publier sur un nouveau dépôt GitHub
 
 ```bash
 # 1. Créer le dépôt (compte GitHub connecté via gh)
@@ -88,8 +139,17 @@ git merge upstream/master
 
 Les packages Java restent `com.dimowner.audiorecorder…` pour faciliter les merges ; seul l’`applicationId` / le libellé sont PlanRecorder.
 
-## Crédits
+---
+
+## 🙏 Crédits
 
 - [AudioRecorder](https://github.com/Dimowner/AudioRecorder) — Dmytro Ponomarenko (Apache 2.0)
 - [DPDFNet](https://github.com/ceva-ip/DPDFNet) / [Ceva-IP models](https://huggingface.co/Ceva-IP/DPDFNet) — réduction de bruit live (Apache 2.0) ; détails dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - Icône [mic-signal](https://lucide.dev/icons/mic-signal) — [Lucide Icons](https://lucide.dev) (ISC)
+
+---
+
+## 🌐 Liens
+
+- 🌐 [l’Atelier](https://atelier.atechnologie.fr/)
+- 📦 [Dépôt GitHub](https://github.com/Atelier-Recherche/PlanRecorder)

@@ -3,50 +3,49 @@
  */
 package com.dimowner.audiorecorder.v2.audio.dpdf
 
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
+import org.jtransforms.fft.FloatFFT_1D
 
 /**
- * Real FFT / iFFT matching NumPy `rfft` / `irfft` for arbitrary [n] (used with n=320 for DPDFNet).
- * Direct DFT is fine at hop rate (~100 Hz); the neural net dominates CPU.
+ * Real FFT / iFFT matching NumPy `rfft` / `irfft` for n=320 (DPDFNet), via JTransforms
+ * packed `realForward` / `realInverse` (same layout both ways — avoids Hermitian packing bugs
+ * that muffled the reconstructed voice).
  */
-internal object RealFft {
+internal class RealFft(private val n: Int = DpdfNetEnhancer.WIN_LEN) {
+    private val fft = FloatFFT_1D(n.toLong())
+    /** Packed real-FFT workspace: size n (JTransforms realForward layout). */
+    private val packed = FloatArray(n)
 
     fun rfft(input: FloatArray, realOut: FloatArray, imagOut: FloatArray) {
-        val n = input.size
+        require(input.size >= n)
         val bins = n / 2 + 1
         require(realOut.size >= bins && imagOut.size >= bins)
-        for (k in 0 until bins) {
-            var re = 0.0
-            var im = 0.0
-            val angleStep = -2.0 * PI * k / n
-            for (t in 0 until n) {
-                val angle = angleStep * t
-                val sample = input[t].toDouble()
-                re += sample * cos(angle)
-                im += sample * sin(angle)
-            }
-            realOut[k] = re.toFloat()
-            imagOut[k] = im.toFloat()
+        System.arraycopy(input, 0, packed, 0, n)
+        fft.realForward(packed)
+        // Even-n packing: a[0]=Re(0), a[1]=Re(n/2), a[2k]=Re(k), a[2k+1]=Im(k)
+        realOut[0] = packed[0]
+        imagOut[0] = 0f
+        realOut[n / 2] = packed[1]
+        imagOut[n / 2] = 0f
+        var k = 1
+        while (k < n / 2) {
+            realOut[k] = packed[2 * k]
+            imagOut[k] = packed[2 * k + 1]
+            k++
         }
     }
 
-    fun irfft(realIn: FloatArray, imagIn: FloatArray, n: Int, out: FloatArray) {
-        require(out.size >= n)
+    fun irfft(realIn: FloatArray, imagIn: FloatArray, out: FloatArray) {
         val bins = n / 2 + 1
-        require(realIn.size >= bins && imagIn.size >= bins)
-        for (t in 0 until n) {
-            var sample = realIn[0].toDouble()
-            if (n % 2 == 0) {
-                sample += realIn[bins - 1].toDouble() * cos(PI * t)
-            }
-            val last = if (n % 2 == 0) bins - 2 else bins - 1
-            for (k in 1..last) {
-                val angle = 2.0 * PI * k * t / n
-                sample += 2.0 * (realIn[k] * cos(angle) - imagIn[k] * sin(angle))
-            }
-            out[t] = (sample / n).toFloat()
+        require(realIn.size >= bins && imagIn.size >= bins && out.size >= n)
+        packed[0] = realIn[0]
+        packed[1] = realIn[n / 2]
+        var k = 1
+        while (k < n / 2) {
+            packed[2 * k] = realIn[k]
+            packed[2 * k + 1] = imagIn[k]
+            k++
         }
+        fft.realInverse(packed, true)
+        System.arraycopy(packed, 0, out, 0, n)
     }
 }

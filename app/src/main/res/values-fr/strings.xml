@@ -299,8 +299,20 @@
 	<string name="destination_folder">Dossier de destination</string>
 	<string name="voice_filter">Filtrer pour les voix</string>
 	<string name="voice_filter_summary">Opus + débit parole + reconnaissance vocale + suppression de bruit</string>
-	<string name="dpdf_noise_reduction">Réduction de bruit IA (DPDFNet)</string>
-	<string name="dpdf_noise_reduction_summary">Débruitage live DPDFNet baseline en 16 kHz mono. Incompatible avec Filtrer pour les voix.</string>
+	<string name="dpdf_noise_reduction">Réduction de bruit IA (DPDFNet) — live</string>
+	<string name="dpdf_noise_reduction_summary">Pendant l’enregistrement : Opus 32 kbps · 16 kHz mono · micro · DPDFNet. Exclusif du post-traitement et de Filtrer pour les voix (ne pas empiler le DSP « Reconnaissance vocale »).</string>
+	<string name="dpdf_post_process">Réduction de bruit IA (DPDFNet) — après arrêt</string>
+	<string name="dpdf_post_process_summary">Améliore le fichier une fois l’enregistrement arrêté, puis calcule la forme d’onde. Conserve format/bitrate. Exclusif du DPDF live. Utilise clarté/force ci-dessous.</string>
+	<string name="dpdf_post_processing">Débruitage audio&#8230;</string>
+	<string name="dpdf_clarity">Clarté de la voix</string>
+	<string name="dpdf_clarity_summary">Plus haut = moins sourd (un peu de micro brut + aigus). Plus bas = débruitage max, voix plus mate.</string>
+	<string name="dpdf_clarity_standard">Standard</string>
+	<string name="dpdf_clarity_clear">Claire</string>
+	<string name="dpdf_clarity_brighter">Plus claire</string>
+	<string name="dpdf_strength">Force du débruitage</string>
+	<string name="dpdf_strength_soft">Douce</string>
+	<string name="dpdf_strength_balanced">Équilibrée</string>
+	<string name="dpdf_strength_max">Max</string>
 	<string name="tag_id">Identifiant de session (ex. UE323)</string>
 	<string name="identifier_rules">Règles d\'identifiant</string>
 	<string name="identifier_rules_help">Une par ligne. Chaque # = un chiffre. Ex. : UE### (exactement 3 chiffres), UE#+ (1 ou plus), MATH###</string>

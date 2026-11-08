@@ -85,8 +85,10 @@ internal class SettingsViewModel @Inject constructor(
     private var voiceFilterBackupAudioSource: AudioSource? = null
 
     private var dpdfBackupFormat: RecordingFormat? = null
+    private var dpdfBackupBitRate: BitRate? = null
     private var dpdfBackupSampleRate: SampleRate? = null
     private var dpdfBackupChannelCount: ChannelCount? = null
+    private var dpdfBackupAudioSource: AudioSource? = null
 
     private val decimalFormat: DecimalFormat
 
@@ -177,6 +179,9 @@ internal class SettingsViewModel @Inject constructor(
             patternPreview = buildPatternPreview(prefs.folderPattern, prefs.filePattern),
             voiceFilterEnabled = prefs.voiceFilterEnabled,
             dpdfNoiseReductionEnabled = prefs.dpdfNoiseReductionEnabled,
+            dpdfPostProcessEnabled = prefs.dpdfPostProcessEnabled,
+            dpdfClarity = prefs.dpdfClarity,
+            dpdfAttnLimitDb = prefs.dpdfAttnLimitDb,
             selectedCalendarId = prefs.selectedCalendarId,
             availableCalendars = emptyList(),
             identifierRulesText = prefs.identifierRulesText,
@@ -529,8 +534,10 @@ internal class SettingsViewModel @Inject constructor(
     fun setVoiceFilterEnabled(enabled: Boolean) {
         if (enabled == prefs.voiceFilterEnabled) return
         if (enabled) {
+            // Clear live DPDF without restoring its backups — voice-filter applies its own preset.
+            // Post-process may stay on (runs after stop; not stacked on the live PCM path).
             if (prefs.dpdfNoiseReductionEnabled) {
-                setDpdfNoiseReductionEnabled(false)
+                prefs.dpdfNoiseReductionEnabled = false
             }
             voiceFilterBackupFormat = prefs.settingRecordingFormat
             voiceFilterBackupBitRate = prefs.settingBitrate
@@ -553,37 +560,96 @@ internal class SettingsViewModel @Inject constructor(
             voiceFilterBackupChannelCount?.let { selectChannelCount(it) }
             voiceFilterBackupAudioSource?.let { setAudioSource(it) }
         }
-        _state.value = _state.value.copy(voiceFilterEnabled = enabled)
+        _state.value = _state.value.copy(
+            voiceFilterEnabled = enabled,
+            dpdfNoiseReductionEnabled = prefs.dpdfNoiseReductionEnabled,
+            dpdfPostProcessEnabled = prefs.dpdfPostProcessEnabled,
+        )
     }
 
     fun setDpdfNoiseReductionEnabled(enabled: Boolean) {
         if (enabled == prefs.dpdfNoiseReductionEnabled) return
         if (enabled) {
+            // Clear voice filter without restoring its backups — DPDF applies its own preset.
+            // Do NOT call setVoiceFilterEnabled(false): that would restore VOICE_RECOGNITION /
+            // NoiseSuppressor settings and stack DSP on top of the neural net (eats speech).
             if (prefs.voiceFilterEnabled) {
-                setVoiceFilterEnabled(false)
+                prefs.voiceFilterEnabled = false
             }
+            prefs.dpdfPostProcessEnabled = false
             dpdfBackupFormat = prefs.settingRecordingFormat
+            dpdfBackupBitRate = prefs.settingBitrate
             dpdfBackupSampleRate = prefs.settingSampleRate
             dpdfBackupChannelCount = prefs.settingChannelCount
+            dpdfBackupAudioSource = prefs.settingAudioSource
             prefs.dpdfNoiseReductionEnabled = true
-            // DPDF needs an AudioRecord PCM path at 16 kHz mono (not MediaRecorder-only 3GP).
-            if (prefs.settingRecordingFormat == RecordingFormat.ThreeGp) {
-                val fallback = if (RecordingFormat.Opus in RecordingFormat.availableFormats()) {
-                    RecordingFormat.Opus
-                } else {
-                    RecordingFormat.Wav
-                }
-                selectRecordingFormat(fallback)
+            // Same preset as the PC HushMic workflow that worked well: Opus 32k / 16 kHz / mono.
+            // Source = MIC (not VOICE_RECOGNITION): Android voice-recog DSP + DPDF double-filters.
+            if (RecordingFormat.Opus in RecordingFormat.availableFormats()) {
+                selectRecordingFormat(RecordingFormat.Opus)
+                selectBitrate(BitRate.BR32)
+            } else if (prefs.settingRecordingFormat == RecordingFormat.ThreeGp) {
+                selectRecordingFormat(RecordingFormat.Wav)
             }
             selectSampleRate(SampleRate.SR16000)
             selectChannelCount(ChannelCount.Mono)
+            setAudioSource(AudioSource.MIC)
         } else {
             prefs.dpdfNoiseReductionEnabled = false
             dpdfBackupFormat?.let { selectRecordingFormat(it) }
+            dpdfBackupBitRate?.let { selectBitrate(it) }
             dpdfBackupSampleRate?.let { selectSampleRate(it) }
             dpdfBackupChannelCount?.let { selectChannelCount(it) }
+            dpdfBackupAudioSource?.let { setAudioSource(it) }
         }
-        _state.value = _state.value.copy(dpdfNoiseReductionEnabled = enabled)
+        _state.value = _state.value.copy(
+            dpdfNoiseReductionEnabled = enabled,
+            dpdfPostProcessEnabled = prefs.dpdfPostProcessEnabled,
+            voiceFilterEnabled = prefs.voiceFilterEnabled,
+            selectedAudioSource = prefs.settingAudioSource,
+            dpdfClarity = prefs.dpdfClarity,
+            dpdfAttnLimitDb = prefs.dpdfAttnLimitDb,
+        )
+    }
+
+    fun setDpdfPostProcessEnabled(enabled: Boolean) {
+        if (enabled == prefs.dpdfPostProcessEnabled) return
+        if (enabled) {
+            // Exclusive with live: restore live's format backups if live was on.
+            if (prefs.dpdfNoiseReductionEnabled) {
+                prefs.dpdfNoiseReductionEnabled = false
+                dpdfBackupFormat?.let { selectRecordingFormat(it) }
+                dpdfBackupBitRate?.let { selectBitrate(it) }
+                dpdfBackupSampleRate?.let { selectSampleRate(it) }
+                dpdfBackupChannelCount?.let { selectChannelCount(it) }
+                dpdfBackupAudioSource?.let { setAudioSource(it) }
+            }
+            prefs.dpdfPostProcessEnabled = true
+        } else {
+            prefs.dpdfPostProcessEnabled = false
+        }
+        _state.value = _state.value.copy(
+            dpdfPostProcessEnabled = enabled,
+            dpdfNoiseReductionEnabled = prefs.dpdfNoiseReductionEnabled,
+            voiceFilterEnabled = prefs.voiceFilterEnabled,
+            selectedAudioSource = prefs.settingAudioSource,
+            dpdfClarity = prefs.dpdfClarity,
+            dpdfAttnLimitDb = prefs.dpdfAttnLimitDb,
+        )
+    }
+
+    fun setDpdfClarity(clarity: Int) {
+        val value = clarity.coerceIn(0, 100)
+        if (value == prefs.dpdfClarity) return
+        prefs.dpdfClarity = value
+        _state.value = _state.value.copy(dpdfClarity = value)
+    }
+
+    fun setDpdfAttnLimitDb(db: Int) {
+        val value = db.coerceIn(0, 100)
+        if (value == prefs.dpdfAttnLimitDb) return
+        prefs.dpdfAttnLimitDb = value
+        _state.value = _state.value.copy(dpdfAttnLimitDb = value)
     }
 
     fun setSelectedCalendarId(calendarId: Long) {
@@ -691,6 +757,10 @@ internal class SettingsViewModel @Inject constructor(
             is SettingsScreenAction.SetVoiceFilterEnabled -> setVoiceFilterEnabled(action.enabled)
             is SettingsScreenAction.SetDpdfNoiseReductionEnabled ->
                 setDpdfNoiseReductionEnabled(action.enabled)
+            is SettingsScreenAction.SetDpdfPostProcessEnabled ->
+                setDpdfPostProcessEnabled(action.enabled)
+            is SettingsScreenAction.SetDpdfClarity -> setDpdfClarity(action.clarity)
+            is SettingsScreenAction.SetDpdfAttnLimitDb -> setDpdfAttnLimitDb(action.db)
             is SettingsScreenAction.SetSelectedCalendarId -> setSelectedCalendarId(action.calendarId)
             is SettingsScreenAction.InsertPatternTag -> insertPatternTag(action.target, action.tag)
             SettingsScreenAction.RefreshCalendars -> refreshCalendars()
@@ -773,6 +843,9 @@ internal sealed class SettingsScreenAction {
     data class SetFilePattern(val pattern: String) : SettingsScreenAction()
     data class SetVoiceFilterEnabled(val enabled: Boolean) : SettingsScreenAction()
     data class SetDpdfNoiseReductionEnabled(val enabled: Boolean) : SettingsScreenAction()
+    data class SetDpdfPostProcessEnabled(val enabled: Boolean) : SettingsScreenAction()
+    data class SetDpdfClarity(val clarity: Int) : SettingsScreenAction()
+    data class SetDpdfAttnLimitDb(val db: Int) : SettingsScreenAction()
     data class SetSelectedCalendarId(val calendarId: Long) : SettingsScreenAction()
     data class InsertPatternTag(val target: PatternField, val tag: String) : SettingsScreenAction()
     data object RefreshCalendars : SettingsScreenAction()

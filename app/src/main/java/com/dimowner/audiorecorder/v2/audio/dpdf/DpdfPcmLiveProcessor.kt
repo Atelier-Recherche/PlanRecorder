@@ -12,9 +12,8 @@ import kotlin.math.max
  * Buffers arbitrary PCM chunks into DPDFNet hops (10 ms @ 16 kHz), enhances, and writes
  * the same number of samples back so encoders keep a continuous timeline.
  *
- * Startup latency is up to one model window (~20 ms): early samples may be near silence
- * until the overlap-add buffer fills. Incomplete hops stay buffered until the next chunk
- * (or [flush]) — they are not zero-padded mid-stream.
+ * When the enhancer falls behind, we **pass through** the original sample instead of writing
+ * silence — silence was perceived as “very low gain” during UI lag on weak devices.
  */
 class DpdfPcmLiveProcessor(
     private val enhancer: DpdfNetEnhancer,
@@ -24,9 +23,10 @@ class DpdfPcmLiveProcessor(
     private var pendingCount = 0
     private val hopIn = FloatArray(DpdfNetEnhancer.HOP_SIZE)
     private val hopOut = FloatArray(DpdfNetEnhancer.HOP_SIZE)
-    private val outQueue = FloatArray(DpdfNetEnhancer.HOP_SIZE * 16)
+    private val outQueue = FloatArray(DpdfNetEnhancer.HOP_SIZE * 32)
     private var outHead = 0
     private var outCount = 0
+    private val rawScratch = FloatArray(4096)
 
     override fun processInPlace(pcm: ByteArray, byteCount: Int, channelCount: Int): Int {
         if (byteCount <= 0) return byteCount
@@ -35,14 +35,17 @@ class DpdfPcmLiveProcessor(
         val frames = byteCount / frameBytes
         if (frames <= 0) return byteCount
 
+        // Decode once into floats (also kept for passthrough if enhancer lags).
+        val raw = if (frames <= rawScratch.size) rawScratch else FloatArray(frames)
         for (i in 0 until frames) {
-            feedSample(monoFloatAt(pcm, i, channels))
+            raw[i] = monoFloatAt(pcm, i, channels)
+            feedSample(raw[i])
         }
 
         val bb = ByteBuffer.wrap(pcm, 0, frames * frameBytes).order(ByteOrder.LITTLE_ENDIAN)
         val asShort = bb.asShortBuffer()
         for (i in 0 until frames) {
-            val sample = pollOutputOrZero()
+            val sample = if (outCount > 0) pollOutput() else raw[i]
             val pcm16 = floatToPcm16(sample)
             if (channels == 1) {
                 asShort.put(i, pcm16)
@@ -79,8 +82,8 @@ class DpdfPcmLiveProcessor(
         try {
             enhancer.processHop(hopIn, 0, hopOut, 0)
         } catch (e: Exception) {
-            Timber.e(e, "DPDFNet processHop failed; emitting silence for hop")
-            hopOut.fill(0f)
+            Timber.e(e, "DPDFNet processHop failed; passthrough hop")
+            System.arraycopy(hopIn, 0, hopOut, 0, DpdfNetEnhancer.HOP_SIZE)
         }
         for (i in 0 until DpdfNetEnhancer.HOP_SIZE) {
             pushOutput(hopOut[i])
@@ -89,7 +92,6 @@ class DpdfPcmLiveProcessor(
 
     private fun pushOutput(sample: Float) {
         if (outCount >= outQueue.size) {
-            // Drop oldest hop to keep realtime; should not happen with normal chunk sizes.
             outHead = (outHead + DpdfNetEnhancer.HOP_SIZE) % outQueue.size
             outCount = max(0, outCount - DpdfNetEnhancer.HOP_SIZE)
             Timber.w("DPDFNet output queue overflow; dropped one hop")
@@ -99,8 +101,7 @@ class DpdfPcmLiveProcessor(
         outCount++
     }
 
-    private fun pollOutputOrZero(): Float {
-        if (outCount <= 0) return 0f
+    private fun pollOutput(): Float {
         val sample = outQueue[outHead]
         outHead = (outHead + 1) % outQueue.size
         outCount--
@@ -117,7 +118,6 @@ class DpdfPcmLiveProcessor(
     }
 
     override fun close() {
-        // Enhancer is owned by DpdfNoiseReductionController — only clear session buffers.
         pendingCount = 0
         outHead = 0
         outCount = 0

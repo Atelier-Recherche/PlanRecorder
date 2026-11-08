@@ -39,6 +39,7 @@ media = "1.8.0"
 media3 = "1.11.0"
 opusencoder = "1.2.0"
 tensorflowLite = "2.17.0"
+jtransforms = "3.1"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -95,6 +96,7 @@ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", versi
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
 element-opusencoder = { module = "io.element.android:opusencoder", version.ref = "opusencoder" }
 tensorflow-lite = { module = "org.tensorflow:tensorflow-lite", version.ref = "tensorflowLite" }
+jtransforms = { module = "com.github.wendykierp:JTransforms", version.ref = "jtransforms" }
 #androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 #androidx-fragment = { group = "androidx.fragment:fragment-ktx:", version.ref = "fragment" }
 

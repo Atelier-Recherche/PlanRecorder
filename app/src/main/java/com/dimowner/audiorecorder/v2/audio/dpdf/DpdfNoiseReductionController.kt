@@ -26,6 +26,9 @@ class DpdfNoiseReductionController @Inject constructor(
     val isEnabled: Boolean
         get() = prefs.dpdfNoiseReductionEnabled
 
+    val isPostProcessEnabled: Boolean
+        get() = prefs.dpdfPostProcessEnabled
+
     /**
      * Returns a processor for a new recording session, or null when denoising is off / failed to load.
      * Call [endSession] when the recording stops.
@@ -36,11 +39,28 @@ class DpdfNoiseReductionController @Inject constructor(
             sessionProcessor.set(null)
             return null
         }
-        val enhancer = obtainEnhancer() ?: return null
-        enhancer.reset()
+        val enhancer = obtainConfiguredEnhancer() ?: return null
+        Timber.d(
+            "DPDFNet session attn=%d dB clarity=%d",
+            prefs.dpdfAttnLimitDb,
+            prefs.dpdfClarity,
+        )
         val processor = DpdfPcmLiveProcessor(enhancer)
         sessionProcessor.set(processor)
         return processor
+    }
+
+    /**
+     * Shared enhancer configured from prefs for offline post-process.
+     * Caller must not [close] it — only use [DpdfNetEnhancer.reset] / [processHop].
+     */
+    @Synchronized
+    fun obtainConfiguredEnhancer(): DpdfNetEnhancer? {
+        val enhancer = obtainEnhancer() ?: return null
+        enhancer.reset()
+        enhancer.setAttnLimitDb(prefs.dpdfAttnLimitDb.toFloat())
+        enhancer.clarity = prefs.dpdfClarity.coerceIn(0, 100) / 100f
+        return enhancer
     }
 
     /** Active session processor, if any (recorders may also hold the reference from [beginSession]). */

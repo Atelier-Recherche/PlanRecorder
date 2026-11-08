@@ -111,9 +111,27 @@ interface PrefsV2 {
 
     /**
      * When true, live DPDFNet baseline (TFLite) denoising runs on the PCM path at 16 kHz mono.
-     * Mutually exclusive with [voiceFilterEnabled].
+     * Mutually exclusive with [voiceFilterEnabled] and [dpdfPostProcessEnabled].
      */
     var dpdfNoiseReductionEnabled: Boolean
+
+    /**
+     * When true, DPDFNet runs once after recording stops (decode → enhance → re-encode),
+     * then waveform decode. Mutually exclusive with [dpdfNoiseReductionEnabled] (live).
+     * Does not force recording format; uses [dpdfClarity] / [dpdfAttnLimitDb].
+     */
+    var dpdfPostProcessEnabled: Boolean
+
+    /**
+     * Voice clarity after DPDF denoise, 0..100.
+     * 0 = full wet (max denoise, can sound dull); higher mixes dry signal back + light presence.
+     */
+    var dpdfClarity: Int
+
+    /**
+     * Attenuation limit in dB for DPDFNet (≥80 = unlimited / full model, like desktop attn=0).
+     */
+    var dpdfAttnLimitDb: Int
 
     /**
      * Selected Android calendar id for event lookup, or [NO_CALENDAR_FILTER] for all calendars.
